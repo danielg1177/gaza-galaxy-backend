@@ -113,6 +113,26 @@ class TurnController extends Controller
             }
         }
 
+        if ($state['status'] !== 'finished') {
+            if (! preg_match('/player-(\d+)/', $state['currentPlayerId'], $matches)) {
+                return response()->json(['message' => 'Invalid current player id in state'], 422);
+            }
+
+            $nextPlayer = GamePlayer::where('game_id', $game->id)
+                ->where('turn_order', (int) $matches[1])
+                ->first();
+
+            if ($nextPlayer === null) {
+                return response()->json(['message' => 'Next player not found for game state'], 422);
+            }
+
+            if ($nextPlayer->is_ai && $nextPlayer->user_id === null) {
+                return response()->json([
+                    'message' => 'Turn must advance to a human player before submitting in async multiplayer',
+                ], 422);
+            }
+        }
+
         DB::transaction(function () use ($request, $game, $me, $state) {
             Turn::updateOrCreate(
                 [
