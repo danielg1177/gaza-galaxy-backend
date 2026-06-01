@@ -78,14 +78,16 @@ class InviteController extends Controller
         $this->notificationService->sendPushNotification(
             $invite->inviter,
             'Strategic Commander',
-            "Your invite was accepted for {$game->name}."
+            "Your invite was accepted for {$game->name}.",
+            ['game_id' => $game->id, 'event' => 'invite_accepted']
         );
 
         if ($unblocked) {
             $this->notificationService->sendPushNotification(
                 $me,
                 'Strategic Commander',
-                "It's your turn in {$game->name}!"
+                "It's your turn in {$game->name}!",
+                ['game_id' => $game->id, 'event' => 'your_turn']
             );
         }
 
@@ -122,7 +124,8 @@ class InviteController extends Controller
         $this->notificationService->sendPushNotification(
             $game->createdBy,
             'Strategic Commander',
-            "An invite was declined. {$game->name} has been cancelled."
+            "An invite was declined. {$game->name} has been cancelled.",
+            ['game_id' => $game->id, 'event' => 'game_cancelled']
         );
 
         return response()->json([
