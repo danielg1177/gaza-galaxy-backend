@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PushTokenController extends Controller
 {
+    public function __construct(
+        private NotificationService $notificationService
+    ) {}
     public function update(Request $request): JsonResponse
     {
         $request->validate([
@@ -31,5 +35,16 @@ class PushTokenController extends Controller
             'web_push_subscription' => json_encode($request->input('subscription')),
         ]);
         return response()->json(['saved' => true]);
+    }
+
+    public function testWebPush(Request $request): JsonResponse
+    {
+        $result = $this->notificationService->sendWebPushNotification(
+            $request->user(),
+            'Test Push',
+            'If you see this, Web Push works.'
+        );
+
+        return response()->json($result, $result['sent'] ? 200 : 422);
     }
 }

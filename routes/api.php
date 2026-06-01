@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/push-token', [PushTokenController::class, 'update']);
     Route::post('/push-subscription', [PushTokenController::class, 'storeSubscription']);
+    Route::post('/test-web-push', [PushTokenController::class, 'testWebPush']);
 
     Route::get('/friends', [FriendController::class, 'index']);
     Route::get('/friends/requests', [FriendController::class, 'requests']);
