@@ -1,0 +1,130 @@
+# Roadmap
+
+Build order follows dependency order — each step depends on the previous being complete and tested.
+
+---
+
+## Phase 1 — Foundation
+
+### 1.1 Database Migrations
+Create all six migrations from `docs/backend/database-schema.md`:
+- `users`
+- `friendships`
+- `games`
+- `game_players`
+- `game_invites`
+- `turns`
+
+### 1.2 Models
+Create Eloquent models: `User`, `Friendship`, `Game`, `GamePlayer`, `GameInvite`, `Turn`.
+
+Configure `User` with `HasApiTokens`, `$fillable`, and `$casts`.
+
+### 1.3 Sanctum + CORS Configuration
+- Set token expiration to `null`
+- Enable Sanctum middleware on `api` guard
+- Configure CORS to allow `api/*`
+
+---
+
+## Phase 2 — Authentication
+
+Implement `AuthController`:
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+Implement `PushTokenController`:
+- `POST /api/push-token`
+
+**Test:** Register two users. Login. Logout. Verify token auth. Verify push token save.
+
+---
+
+## Phase 3 — Friends System
+
+Implement `FriendController` and `UserController`:
+- `GET /api/friends`
+- `GET /api/friends/requests`
+- `POST /api/friends/request`
+- `POST /api/friends/requests/{id}/accept`
+- `POST /api/friends/requests/{id}/decline`
+- `DELETE /api/friends/{id}`
+- `GET /api/users/search`
+
+**Test:** Full friend request flow between two users. Search. Accept. Verify list.
+
+---
+
+## Phase 4 — Game Creation and Invites
+
+Implement `GameController` (create + list) and `InviteController`:
+- `POST /api/games`
+- `GET /api/games`
+- `GET /api/invites`
+- `POST /api/invites/{id}/accept`
+- `POST /api/invites/{id}/decline`
+- `DELETE /api/games/{id}`
+
+**Prerequisite:** `engine/init-game.js` must be available before accept/decline can fully start a game.
+
+**Test:** Create game with friend invite. Verify invite appears. Accept invite. Verify game starts. Decline invite. Verify game cancelled.
+
+---
+
+## Phase 5 — Game Engine Bridge
+
+Build or obtain `engine/init-game.js` from the frontend team.
+
+Place it at `{backend_root}/engine/init-game.js`.
+
+Implement `GameService::startGame()` per `docs/backend/turn-engine.md`.
+
+**Test:** Create a solo game (no invites). Verify state_json is populated, game status = active.
+
+---
+
+## Phase 6 — Game Detail + Turn System
+
+Implement `TurnController` and `GET /api/games/{id}`:
+- `GET /api/games/{id}`
+- `POST /api/games/{id}/turn/save`
+- `POST /api/games/{id}/turn/submit`
+- `POST /api/games/{id}/turn/abandon`
+
+**Test:** Full turn cycle. Mid-turn save. Resume. Submit. Verify state advances. Verify privacy (other player cannot see in_progress_actions).
+
+---
+
+## Phase 7 — Push Notifications
+
+Implement `NotificationService::sendPushNotification()`.
+
+Wire into all trigger points:
+- Game invite
+- Invite accepted/declined
+- Game started
+- Your turn
+- Game finished
+
+**Test:** Verify notifications fire for all events (check Expo push receipt logs).
+
+---
+
+## Phase 8 — End-to-End Testing
+
+Run the full testing checklist from `docs/backend-build-instructions.md` Section 9.
+
+---
+
+## Future (Post-Launch)
+
+| Feature | When |
+|---------|------|
+| Queue-based notification delivery | When fire-and-forget reliability becomes insufficient |
+| Redis + Horizon | When queue volume justifies it |
+| WebSocket / real-time updates | If the client needs live game state without polling |
+| Password reset flow | If admin-only resets become insufficient |
+| Leaderboards / stats | Post-launch feature |
+| Spectator mode | Post-launch feature |
