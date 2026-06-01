@@ -44,7 +44,7 @@ class NotificationService
                     'privateKey' => config('services.vapid.private_key'),
                 ],
             ];
-            $webPush = new WebPush($auth);
+            $webPush = new WebPush($auth, [], 30, [], Log::getLogger());
             $payload = json_encode(['title' => $title, 'body' => $body, 'data' => $data]);
             $webPush->queueNotification($subscription, $payload);
             foreach ($webPush->flush() as $report) {
