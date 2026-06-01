@@ -171,7 +171,7 @@ class GameController extends Controller
 
             if ($invitee) {
                 $this->notificationService->sendPushNotification(
-                    $invitee->expo_push_token ?? '',
+                    $invitee,
                     'Strategic Commander',
                     "You've been invited to play {$result['game']->name}!"
                 );

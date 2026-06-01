@@ -118,6 +118,31 @@ Run the full testing checklist from `docs/backend-build-instructions.md` Section
 
 ---
 
+## Phase 9 — PWA Push Notifications
+
+Required for the PWA release. The frontend is switching from Expo push tokens (native-only) to the Web Push API (VAPID). These tasks add VAPID key management, a web push subscription storage column, a new API endpoint, and VAPID-based notification delivery alongside the existing Expo push path.
+
+### 9.1 Generate VAPID key pair and add to `.env`
+Generate VAPID public/private key pair (`VAPID::createVapidKeys()` from the web-push library after 9.2 is installed, or via `openssl`). Add `VAPID_SUBJECT`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` to `.env` and `.env.example`. Share `VAPID_PUBLIC_KEY` with the frontend team.
+
+### 9.2 Install `minishlink/web-push`
+```bash
+composer require minishlink/web-push
+```
+
+### 9.3 Add `web_push_subscription` column to `users`
+Migration: nullable `text` column on `users` table. `User::$fillable` updated. Stores the serialized `PushSubscription.toJSON()` object `{ endpoint, keys: { p256dh, auth } }`.
+
+### 9.4 Add `POST /api/push-subscription` endpoint
+New route in the `auth:sanctum` group. Validates `subscription.endpoint` (URL), `subscription.keys.p256dh`, `subscription.keys.auth`. Stores `json_encode($validated['subscription'])` on the user.
+
+### 9.5 Update `NotificationService` to send Web Push
+Add `sendWebPushNotification(User $user, ...)` private method using `WebPush` + `Subscription` from `minishlink/web-push`. Call it from the existing `sendPushNotification()` after the Expo push block. Add VAPID config to `config/services.php`.
+
+**Test:** Deploy VAPID keys. Install the PWA in a browser. Verify push subscription is uploaded (`users.web_push_subscription` populated). Trigger a game event (e.g. friend submits a turn) and confirm the notification arrives in the browser/OS.
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |

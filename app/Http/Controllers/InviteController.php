@@ -76,14 +76,14 @@ class InviteController extends Controller
         $invite->load('inviter');
 
         $this->notificationService->sendPushNotification(
-            $invite->inviter->expo_push_token ?? '',
+            $invite->inviter,
             'Strategic Commander',
             "Your invite was accepted for {$game->name}."
         );
 
         if ($unblocked) {
             $this->notificationService->sendPushNotification(
-                $me->expo_push_token ?? '',
+                $me,
                 'Strategic Commander',
                 "It's your turn in {$game->name}!"
             );
@@ -120,7 +120,7 @@ class InviteController extends Controller
         $game = Game::with('createdBy')->find($invite->game_id);
 
         $this->notificationService->sendPushNotification(
-            $game->createdBy->expo_push_token ?? '',
+            $game->createdBy,
             'Strategic Commander',
             "An invite was declined. {$game->name} has been cancelled."
         );

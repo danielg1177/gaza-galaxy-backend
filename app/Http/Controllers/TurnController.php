@@ -192,7 +192,7 @@ class TurnController extends Controller
                     : "You lost {$game->name}.";
 
                 $this->notificationService->sendPushNotification(
-                    $player->user->expo_push_token ?? '',
+                    $player->user,
                     'Strategic Commander',
                     $body
                 );
@@ -213,7 +213,7 @@ class TurnController extends Controller
 
                 if ($nextUser) {
                     $this->notificationService->sendPushNotification(
-                        $nextUser->expo_push_token ?? '',
+                        $nextUser,
                         'Strategic Commander',
                         "It's your turn in {$game->name}!"
                     );

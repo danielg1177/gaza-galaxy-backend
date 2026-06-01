@@ -17,4 +17,19 @@ class PushTokenController extends Controller
 
         return response()->json(['saved' => true]);
     }
+
+    public function storeSubscription(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'subscription'               => ['required', 'array'],
+            'subscription.endpoint'      => ['required', 'string', 'url'],
+            'subscription.keys'          => ['required', 'array'],
+            'subscription.keys.p256dh'   => ['required', 'string'],
+            'subscription.keys.auth'     => ['required', 'string'],
+        ]);
+        $request->user()->update([
+            'web_push_subscription' => json_encode($request->input('subscription')),
+        ]);
+        return response()->json(['saved' => true]);
+    }
 }

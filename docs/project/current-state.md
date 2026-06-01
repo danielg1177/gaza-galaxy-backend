@@ -106,3 +106,195 @@ Work through these in order. Each task should be implemented, tested, and marked
 3. ~~**Phase 18 — Play with Friends: Creator-First Start**~~ — Complete (2026-05-31). Tasks 151–154 done.
 
 4. ~~**Allow creator to delete a game regardless of status**~~ — Complete (2026-05-31).
+
+---
+
+## Phase 9 — PWA Push Notifications
+
+The frontend is being converted to a PWA. `expo-notifications` does not support background push on the web — the browser requires the **Web Push API (VAPID)** instead. These five tasks add VAPID-based push delivery alongside the existing Expo push path. Work them in order (9.1 → 9.2 → 9.3 → 9.4 → 9.5).
+
+---
+
+### Backend Task 9.1 — Generate VAPID key pair and add to `.env`
+
+**Goal:** Generate a VAPID key pair (used to authenticate the server when sending Web Push messages) and store it in the environment config.
+
+**Steps:**
+
+1. Install the PHP web-push package first (Task 9.2 below), then run:
+   ```bash
+   php artisan web-push:vapid
+   ```
+   Or generate manually with `openssl`:
+   ```bash
+   openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out vapid_private.pem
+   openssl ec -in vapid_private.pem -pubout -out vapid_public.pem
+   ```
+   The `minishlink/web-push` library provides a helper: `VAPID::createVapidKeys()` which returns `['publicKey' => ..., 'privateKey' => ...]`.
+
+2. Add to `.env`:
+   ```
+   VAPID_SUBJECT=mailto:admin@yourdomain.com
+   VAPID_PUBLIC_KEY=your_base64url_public_key
+   VAPID_PRIVATE_KEY=your_base64url_private_key
+   ```
+
+3. Add the same three keys to `.env.example` with placeholder values.
+
+4. The `VAPID_PUBLIC_KEY` value must be given to the frontend team for `EXPO_PUBLIC_VAPID_PUBLIC_KEY` in their `.env`.
+
+---
+
+### Backend Task 9.2 — Install `minishlink/web-push` PHP package
+
+**Goal:** Add the PHP library that handles VAPID signing and Web Push protocol delivery.
+
+```bash
+composer require minishlink/web-push
+```
+
+Confirm `composer.json` and `composer.lock` are updated. No code changes yet — this just makes the library available for Tasks 9.4 and 9.5.
+
+---
+
+### Backend Task 9.3 — Add `web_push_subscription` column to `users` table
+
+**Goal:** Store the browser's `PushSubscription` JSON (endpoint URL + encryption keys) per user.
+
+**Steps:**
+
+1. Create migration: `php artisan make:migration add_web_push_subscription_to_users_table`
+
+2. Migration content:
+   ```php
+   Schema::table('users', function (Blueprint $table) {
+       $table->text('web_push_subscription')->nullable()->after('expo_push_token');
+   });
+   ```
+
+3. Update `User` model: add `'web_push_subscription'` to `$fillable`.
+
+4. Run `php artisan migrate`.
+
+**Stored format:** The column stores the serialized JSON of the browser's `PushSubscription.toJSON()` result:
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+```
+
+---
+
+### Backend Task 9.4 — Add `POST /api/push-subscription` endpoint
+
+**Goal:** Accept a web push subscription from the frontend and store it on the user record.
+
+**Steps:**
+
+1. Add a method to `PushTokenController` (or create a new `PushSubscriptionController`):
+   ```php
+   public function storeSubscription(Request $request): JsonResponse
+   {
+       $validated = $request->validate([
+           'subscription'           => ['required', 'array'],
+           'subscription.endpoint'  => ['required', 'string', 'url'],
+           'subscription.keys'      => ['required', 'array'],
+           'subscription.keys.p256dh' => ['required', 'string'],
+           'subscription.keys.auth'   => ['required', 'string'],
+       ]);
+
+       $request->user()->update([
+           'web_push_subscription' => json_encode($validated['subscription']),
+       ]);
+
+       return response()->json(['saved' => true]);
+   }
+   ```
+
+2. Register the route inside the `auth:sanctum` group in `routes/api.php`:
+   ```php
+   Route::post('/push-subscription', [PushTokenController::class, 'storeSubscription']);
+   ```
+
+3. Update `docs/backend/api-contract.md` and `docs/project/current-state.md` with the new endpoint.
+
+---
+
+### Backend Task 9.5 — Update `NotificationService` to send Web Push
+
+**Goal:** When a user has a `web_push_subscription`, send the notification via VAPID Web Push in addition to (or instead of) the Expo push token path. Both paths should be attempted if both fields are populated on the user record.
+
+**File:** `app/Services/NotificationService.php`
+
+**Requirements:**
+
+1. Import the web-push library at the top of the service:
+   ```php
+   use Minishlink\WebPush\WebPush;
+   use Minishlink\WebPush\Subscription;
+   ```
+
+2. Add a private method `sendWebPushNotification(User $user, string $title, string $body, array $data = []): void`:
+   ```php
+   private function sendWebPushNotification(User $user, string $title, string $body, array $data = []): void
+   {
+       if (blank($user->web_push_subscription)) return;
+
+       try {
+           $sub = json_decode($user->web_push_subscription, true);
+           $subscription = Subscription::create($sub);
+
+           $auth = [
+               'VAPID' => [
+                   'subject'    => config('services.vapid.subject'),
+                   'publicKey'  => config('services.vapid.public_key'),
+                   'privateKey' => config('services.vapid.private_key'),
+               ],
+           ];
+
+           $webPush = new WebPush($auth);
+           $payload = json_encode(['title' => $title, 'body' => $body, 'data' => $data]);
+           $webPush->queueNotification($subscription, $payload);
+           $webPush->flush();
+       } catch (\Throwable) {
+           // Fire-and-forget: swallow all errors
+       }
+   }
+   ```
+
+3. Add VAPID config to `config/services.php`:
+   ```php
+   'vapid' => [
+       'subject'     => env('VAPID_SUBJECT'),
+       'public_key'  => env('VAPID_PUBLIC_KEY'),
+       'private_key' => env('VAPID_PRIVATE_KEY'),
+   ],
+   ```
+
+4. Update the existing `sendPushNotification(User $user, ...)` method to also call `sendWebPushNotification()` after the existing Expo push block:
+   ```php
+   public function sendPushNotification(User $user, string $title, string $body, array $data = []): void
+   {
+       // Existing Expo push path (unchanged)
+       if (!blank($user->expo_push_token)) {
+           try {
+               Http::post('https://exp.host/--/api/v2/push/send', [
+                   'to'    => $user->expo_push_token,
+                   'title' => $title,
+                   'body'  => $body,
+                   'data'  => $data,
+                   'sound' => 'default',
+               ]);
+           } catch (\Throwable) {}
+       }
+
+       // Web Push path (new)
+       $this->sendWebPushNotification($user, $title, $body, $data);
+   }
+   ```
+
+5. Update `docs/backend/notifications.md` and `docs/project/current-state.md` with the new web push path.
