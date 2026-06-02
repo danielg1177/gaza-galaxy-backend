@@ -252,15 +252,28 @@ class GameController extends Controller
             }
         }
 
-        $latestTurn = Turn::where('game_id', $game->id)
+        // Aggregate events from all turns in the most recently completed round so
+        // that every player sees their own attacks plus any attacks made by other
+        // players and the AI during that same round.
+        $latestRound = Turn::where('game_id', $game->id)
             ->whereNotNull('resulting_state_json')
-            ->orderByDesc('turn_number')
-            ->orderByDesc('round_number')
-            ->first();
+            ->max('round_number');
 
         $latestEvents = [];
-        if ($latestTurn && $latestTurn->events_json !== null) {
-            $latestEvents = json_decode($latestTurn->events_json, true);
+        if ($latestRound !== null) {
+            $roundTurns = Turn::where('game_id', $game->id)
+                ->where('round_number', $latestRound)
+                ->whereNotNull('resulting_state_json')
+                ->get();
+
+            foreach ($roundTurns as $turn) {
+                if ($turn->events_json !== null) {
+                    $decoded = json_decode($turn->events_json, true);
+                    if (is_array($decoded)) {
+                        $latestEvents = array_merge($latestEvents, $decoded);
+                    }
+                }
+            }
         }
 
         return response()->json([
