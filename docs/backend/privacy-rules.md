@@ -1,6 +1,6 @@
 # Privacy Rules
 
-Strategic Commander is a competitive turn-based game. Players must not be able to see each other's in-progress decisions. The following rules are mandatory and must be enforced at the API layer.
+Gaza Galaxy is a competitive turn-based game. Players must not be able to see each other's in-progress decisions. The following rules are mandatory and must be enforced at the API layer.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Strategic Commander's backend is a stateless Laravel REST API. It persists game state, manages user accounts and friendships, orchestrates async multiplayer turns, and delivers push notifications via Expo. There is no real-time layer; all communication is request/response.
+Gaza Galaxy's backend is a stateless Laravel REST API. It persists game state, manages user accounts and friendships, orchestrates async multiplayer turns, and delivers push notifications via Expo. There is no real-time layer; all communication is request/response.
 
 Pass-and-play games are entirely client-side and never touch the backend.
 

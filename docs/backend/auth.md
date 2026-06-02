@@ -1,6 +1,6 @@
 # Authentication
 
-Strategic Commander uses **Laravel Sanctum** for API token authentication. There is no email, no OAuth, and no password reset flow. Registration and login are username + password only.
+Gaza Galaxy uses **Laravel Sanctum** for API token authentication. There is no email, no OAuth, and no password reset flow. Registration and login are username + password only.
 
 ---
 

@@ -1,6 +1,6 @@
-# Strategic Commander — Backend Build Instructions
+# Gaza Galaxy — Backend Build Instructions
 
-> **This document is the authoritative specification for the Strategic Commander backend.**
+> **This document is the authoritative specification for the Gaza Galaxy backend.**
 > It is written to be handed directly to an AI model (or developer) responsible for building the backend.
 > Read this entire document before writing any code.
 
@@ -8,7 +8,7 @@
 
 ## 1. Project Overview
 
-Strategic Commander is a turn-based asynchronous space-strategy mobile game for iPhone. This document covers everything needed to build the backend that supports:
+Gaza Galaxy is a turn-based asynchronous space-strategy mobile game for iPhone. This document covers everything needed to build the backend that supports:
 
 - User accounts (username + password, persistent sessions)
 - A friends system (search, friend requests, accept/decline)
@@ -565,7 +565,7 @@ Auth required.
    - AI slots: `user_id = NULL`, `is_ai = true`, `ai_difficulty = slot.difficulty`, `in_game_name = slot.name`
 5. For each non-creator human slot: create `game_invites` row: `game_id`, `inviter_id = creator`, `invitee_id = slot.user_id`, `player_slot_index = slot index`, `status = 'pending'`.
 6. **If there are no pending invites** (all human slots are the creator, i.e., there is only one human and no invited friends): immediately start the game (call `startGame($game)` — see Section 5).
-7. Send push notification to each invited user: `"Game Invite"` / `"{creator_username} invited you to play Strategic Commander"`.
+7. Send push notification to each invited user: `"Game Invite"` / `"{creator_username} invited you to play Gaza Galaxy"`.
 
 **Response (201):**
 ```json
@@ -898,8 +898,8 @@ For multiple recipients: pass an array of tokens to `to` (Expo supports batching
 
 ### 7.1 New Project
 ```bash
-composer create-project laravel/laravel strategic-commander-api
-cd strategic-commander-api
+composer create-project laravel/laravel gaza-galaxy-api
+cd gaza-galaxy-api
 composer require laravel/sanctum
 php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 php artisan migrate

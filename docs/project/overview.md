@@ -1,8 +1,8 @@
 # Project Overview
 
-## What Is Strategic Commander?
+## What Is Gaza Galaxy?
 
-Strategic Commander is a turn-based asynchronous space strategy game for iPhone. Players build fleets, colonize planets, and compete to dominate a procedurally generated galaxy. Games are played asynchronously — each player takes their turn on their own device at their own pace, then the game passes to the next player.
+Gaza Galaxy is a turn-based asynchronous space strategy game for iPhone. Players build fleets, colonize planets, and compete to dominate a procedurally generated galaxy. Games are played asynchronously — each player takes their turn on their own device at their own pace, then the game passes to the next player.
 
 ---
 

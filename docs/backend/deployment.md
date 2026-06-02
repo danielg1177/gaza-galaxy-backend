@@ -17,8 +17,8 @@ Node.js must be installed globally and available on the system `PATH` so Laravel
 ## Initial Setup
 
 ```bash
-composer create-project laravel/laravel strategic-commander-api
-cd strategic-commander-api
+composer create-project laravel/laravel gaza-galaxy-api
+cd gaza-galaxy-api
 composer require laravel/sanctum
 php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 php artisan migrate
@@ -29,7 +29,7 @@ php artisan migrate
 ## Environment Variables (`.env`)
 
 ```dotenv
-APP_NAME="Strategic Commander API"
+APP_NAME="Gaza Galaxy"
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://api.yourdomain.com
@@ -37,7 +37,7 @@ APP_URL=https://api.yourdomain.com
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=strategic_commander
+DB_DATABASE=gaza_galaxy
 DB_USERNAME=your_db_user
 DB_PASSWORD=your_db_password
 

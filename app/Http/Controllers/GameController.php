@@ -172,7 +172,7 @@ class GameController extends Controller
             if ($invitee) {
                 $this->notificationService->sendPushNotification(
                     $invitee,
-                    'Strategic Commander',
+                    config('app.name'),
                     "You've been invited to play {$result['game']->name}!",
                     ['game_id' => $result['game']->id, 'event' => 'invite_received']
                 );

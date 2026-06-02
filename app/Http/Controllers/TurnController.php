@@ -213,7 +213,7 @@ class TurnController extends Controller
 
                 $this->notificationService->sendPushNotification(
                     $player->user,
-                    'Strategic Commander',
+                    config('app.name'),
                     $body,
                     ['game_id' => $game->id, 'event' => 'game_finished']
                 );
@@ -235,7 +235,7 @@ class TurnController extends Controller
                 if ($nextUser) {
                     $this->notificationService->sendPushNotification(
                         $nextUser,
-                        'Strategic Commander',
+                        config('app.name'),
                         "It's your turn in {$game->name}!",
                         ['game_id' => $game->id, 'event' => 'your_turn']
                     );

@@ -1,6 +1,6 @@
 # Push Notifications
 
-Strategic Commander uses the **Expo Push API** directly from Laravel. No Firebase setup, no APNs certificates — Expo handles the platform-level delivery.
+Gaza Galaxy uses the **Expo Push API** directly from Laravel. No Firebase setup, no APNs certificates — Expo handles the platform-level delivery.
 
 ---
 
