@@ -252,17 +252,25 @@ class GameController extends Controller
             }
         }
 
-        // Aggregate events from all turns in the most recently completed round so
-        // that every player sees their own attacks plus any attacks made by other
-        // players and the AI during that same round.
-        $latestRound = Turn::where('game_id', $game->id)
+        // Determine which round the requesting user most recently played so we
+        // can return the complete set of events for that round.  We need ALL
+        // turns from that round (not just the user's own) because in a
+        // multi-human game a teammate's turn record may contain combat events
+        // where the requesting player was the attacker or defender.
+        //
+        // Using the global max(round_number) would be wrong here: in a 2-player
+        // game Player B (who submits first each round) advances the round counter
+        // before Player A (last submitter) even loads their result, so the global
+        // max points at B's new round — skipping A's combat events entirely.
+        $userLastRound = Turn::where('game_id', $game->id)
+            ->where('user_id', $me->id)
             ->whereNotNull('resulting_state_json')
             ->max('round_number');
 
         $latestEvents = [];
-        if ($latestRound !== null) {
+        if ($userLastRound !== null) {
             $roundTurns = Turn::where('game_id', $game->id)
-                ->where('round_number', $latestRound)
+                ->where('round_number', $userLastRound)
                 ->whereNotNull('resulting_state_json')
                 ->get();
 
