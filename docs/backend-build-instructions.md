@@ -550,7 +550,7 @@ Auth required.
 
 **Validation:**
 - `name`: required | string | max:100
-- `map_config`: required object with `mapSize` (small|medium|large), `mapWidth` (int > 0), `mapHeight` (int > 0), `planetCount` (int 2–100), `seed` (int), `galaxyShape` (scattered|arms|dense_core|ring)
+- `map_config`: required object with `mapSize` (small|medium|large), `mapWidth` (int > 0), `mapHeight` (int > 0), `planetCount` (int 2–100), `seed` (int), `galaxyShape` (scattered|dense_core|ring|cluster|spiral)
 - `player_slots`: required array, length 2–8
 - Each slot: `type` (human|ai), `user_id` (nullable int for humans), `name` (string max 50), `difficulty` (easy|normal|hard, only for ai type)
 - All human `user_id`s (non-null, non-creator) must be IDs of users who are **accepted friends** of the authenticated creator
