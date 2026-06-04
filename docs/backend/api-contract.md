@@ -299,6 +299,25 @@ Auth required. User must be a member (`game_players`).
 
 ---
 
+### `PATCH /api/games/{id}`
+Auth required. Must be the game creator.
+
+**Request:**
+```json
+{ "name": "string" }
+```
+
+**Response 200:**
+```json
+{ "game": { "id": 1, "name": "Updated Game Name" } }
+```
+
+**Errors:**
+- `403` — not the creator
+- `422` — validation failure (name empty or too long)
+
+---
+
 ### `DELETE /api/games/{id}`
 Auth required. Must be the game creator. Can be deleted regardless of game status.
 

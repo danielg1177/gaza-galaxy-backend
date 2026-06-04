@@ -301,6 +301,30 @@ class GameController extends Controller
         ]);
     }
 
+    public function update(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+
+        if ($game->created_by_user_id != $me->id) {
+            return response()->json(['message' => 'Only the creator can update this game'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+        ]);
+
+        $game->update([
+            'name' => $validated['name'],
+        ]);
+
+        return response()->json([
+            'game' => [
+                'id' => $game->id,
+                'name' => $game->name,
+            ],
+        ]);
+    }
+
     public function destroy(Request $request, Game $game)
     {
         $me = $request->user();
