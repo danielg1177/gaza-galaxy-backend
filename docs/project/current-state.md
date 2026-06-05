@@ -109,6 +109,14 @@ Work through these in order. Each task should be implemented, tested, and marked
 
 ---
 
+## Phase 10 — Bug Fix: Spoiler Notification Sent to Eliminated/Losing Player
+
+**Status:** Complete (2026-06-04).
+
+~~**Backend Task 10.1**~~ — Change elimination/game-over push notification to neutral "view results" framing (`TurnController.php`, `docs/backend/notifications.md`) *(complete 2026-06-04)*
+
+---
+
 ## Phase 9 — PWA Push Notifications
 
 The frontend is being converted to a PWA. `expo-notifications` does not support background push on the web — the browser requires the **Web Push API (VAPID)** instead. These five tasks add VAPID-based push delivery alongside the existing Expo push path. Work them in order (9.1 → 9.2 → 9.3 → 9.4 → 9.5).

@@ -207,14 +207,12 @@ class TurnController extends Controller
                 ->get();
 
             foreach ($humanPlayers as $player) {
-                $body = $player->user_id === $game->winner_user_id
-                    ? "You won {$game->name}!"
-                    : "You lost {$game->name}.";
+                $isWinner = $player->user_id === $game->winner_user_id;
 
                 $this->notificationService->sendPushNotification(
                     $player->user,
-                    config('app.name'),
-                    $body,
+                    $isWinner ? config('app.name') : $game->name,
+                    $isWinner ? "You won {$game->name}!" : 'The last round is ready to view — see how it ended.',
                     ['game_id' => $game->id, 'event' => 'game_finished']
                 );
             }

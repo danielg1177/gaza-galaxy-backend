@@ -143,6 +143,45 @@ Add `sendWebPushNotification(User $user, ...)` private method using `WebPush` + 
 
 ---
 
+## Phase 10 — Bug Fix: Spoiler Notification Sent to Eliminated/Losing Player Before They See the Final Battle
+
+**Context:** See `frontend/docs/tasks/backlog.md` Phase 47. When a player is eliminated or the game ends, the backend currently sends them an "eliminated" or "game over" push notification immediately. This spoils the outcome before the player has had a chance to open the game and view the final battle report. The frontend fix (Tasks 214–215) allows the player to enter the finished game and see the fight — but only if they are not already discouraged by a blunt "you lost" notification.
+
+---
+
+### ~~Backend Task 10.1 — Change elimination/game-over push notification to neutral "view results" framing~~ *(complete 2026-06-04)*
+
+**File:** `app/Http/Controllers/TurnController.php`
+
+**Goal:** Replace the spoiler-heavy "eliminated" / "game over" notification copy sent to the losing or eliminated player with a neutral "see what happened" message that entices them to open the game and view the final battle report.
+
+**Current behaviour (`TurnController::submit()`):**
+
+After a turn submit that ends the game, the backend sends the loser/eliminated player a notification along the lines of:
+- "You've been eliminated from [Game]" — or equivalent game-over copy
+
+**Required change:**
+
+1. Locate the push notification call(s) in `TurnController::submit()` that fire when `$game->status` is set to `'finished'` and a `winner_user_id` is determined.
+
+2. For every player who is **not** the winner, change the notification to:
+   - **Title:** `"Final battle awaits"` (or the game name, e.g. `"{$game->name}"`)
+   - **Body:** `"The last round is ready to view — see how it ended."`
+
+3. For the **winner**, the notification can remain positive (e.g. `"You won [Game]!"`) or be similarly neutralised — use judgement; the winner is not at risk of being spoiled since they already know the outcome.
+
+4. No other logic changes — only the notification `title` and `body` strings are modified.
+
+5. Update `docs/backend/notifications.md` to document the revised notification copy for the game-end event.
+
+**Verification:**
+
+- Submit a turn that eliminates another player. Confirm the eliminated player's push notification body is the neutral "see how it ended" copy, not an elimination spoiler.
+- The winner's notification remains positive and fires correctly.
+- No other notification paths (invite, your-turn, game-started) are changed.
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |

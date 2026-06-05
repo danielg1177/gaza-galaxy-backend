@@ -36,7 +36,7 @@ This lives in `app/Services/NotificationService.php`.
 | Invite accepted | `POST /invites/{id}/accept` | Game creator | "Invite Accepted" | "{username} accepted your invite" | `{ game_id, event: "invite_accepted" }` |
 | Invite declined | `POST /invites/{id}/decline` | Game creator | "Invite Declined" | "{username} declined — game cancelled" | `{ game_id, event: "game_cancelled" }` |
 | Game finished (winner) | `POST /turn/submit` (finished) | Winner | "Victory!" | "You won '{game.name}'!" | `{ game_id, event: "game_finished" }` |
-| Game finished (losers) | `POST /turn/submit` (finished) | All other human players | "Game Over" | "'{game.name}' has ended" | `{ game_id, event: "game_finished" }` |
+| Game finished (losers) | `POST /turn/submit` (finished) | All other human players | "{game.name}" | "The last round is ready to view — see how it ended." | `{ game_id, event: "game_finished" }` |
 
 ---
 
