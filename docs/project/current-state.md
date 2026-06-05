@@ -122,7 +122,7 @@ Four tasks to add per-game player messaging with unread count tracking and push 
 - ~~**Backend Task 11.1**~~ — Create `game_messages` table, `GameMessage` model, and `last_read_message_id` column on `game_players` *(complete 2026-06-05)*
 - ~~**Backend Task 11.2**~~ — Create `MessageController` with `GET /api/games/{game}/messages` and `POST /api/games/{game}/messages` *(complete 2026-06-05)*
 - ~~**Backend Task 11.3**~~ — Add `unread_message_count` to `GET /api/games` and `GET /api/games/{id}` responses *(complete 2026-06-05)*
-- **Backend Task 11.4** — Send push notification to all other game members when a message is posted
+- ~~**Backend Task 11.4**~~ — Send push notification to all other game members when a message is posted *(complete 2026-06-05 — wired in `MessageController::store`)*
 
 ---
 
