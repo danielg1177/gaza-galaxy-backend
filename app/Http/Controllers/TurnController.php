@@ -96,7 +96,7 @@ class TurnController extends Controller
         $request->validate([
             'turn_number' => ['required', 'integer'],
             'round_number' => ['required', 'integer'],
-            'actions' => ['required', 'array'],
+            'actions' => ['present', 'array'],
             'resulting_state' => ['required', 'array'],
             'events' => ['nullable', 'array'],
         ]);
