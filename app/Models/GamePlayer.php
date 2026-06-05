@@ -12,6 +12,7 @@ class GamePlayer extends Model
         'user_id',
         'turn_order',
         'name',
+        'last_read_message_id',
         'is_ai',
         'home_planet_id',
         'is_eliminated',
@@ -21,6 +22,7 @@ class GamePlayer extends Model
         'is_ai' => 'boolean',
         'is_eliminated' => 'boolean',
         'turn_order' => 'integer',
+        'last_read_message_id' => 'integer',
     ];
 
     public function game(): BelongsTo

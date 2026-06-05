@@ -182,6 +182,198 @@ After a turn submit that ends the game, the backend sends the loser/eliminated p
 
 ---
 
+## Phase 11 — Feature: In-Game Messaging System
+
+Players in an async multiplayer game can send messages to one another throughout the game. Messages are stored per-game and each player's read position is tracked, enabling unread counts to be surfaced in the game list and game detail APIs.
+
+Work tasks in order: 11.1 → 11.2 → 11.3 → 11.4.
+
+---
+
+### Backend Task 11.1 — Create `game_messages` table, `GameMessage` model, and `last_read_message_id` on `game_players`
+
+**Goal:** Provide the schema required to store messages and track each player's read position.
+
+**Steps:**
+
+1. **Migration 1 — `game_messages` table** (`php artisan make:migration create_game_messages_table`):
+   ```php
+   Schema::create('game_messages', function (Blueprint $table) {
+       $table->bigIncrements('id');
+       $table->unsignedBigInteger('game_id');
+       $table->unsignedBigInteger('sender_user_id');
+       $table->text('content');
+       $table->timestamps();
+
+       $table->foreign('game_id')->references('id')->on('games')->cascadeOnDelete();
+       $table->foreign('sender_user_id')->references('id')->on('users')->cascadeOnDelete();
+       $table->index('game_id');
+   });
+   ```
+
+2. **Migration 2 — `last_read_message_id` on `game_players`** (`php artisan make:migration add_last_read_message_id_to_game_players_table`):
+   ```php
+   Schema::table('game_players', function (Blueprint $table) {
+       $table->unsignedBigInteger('last_read_message_id')->nullable()->after('name');
+   });
+   ```
+   No FK constraint needed — the referenced message may be deleted if the game is deleted, but cascade delete on `game_messages` handles cleanup.
+
+3. **`GameMessage` model** (`app/Models/GameMessage.php`):
+   ```php
+   protected $fillable = ['game_id', 'sender_user_id', 'content'];
+   protected $casts    = ['game_id' => 'integer', 'sender_user_id' => 'integer'];
+   ```
+   Relationships: `game()` belongsTo `Game`, `sender()` belongsTo `User`.
+
+4. **Update `Game` model:** add `messages()` hasMany `GameMessage`.
+
+5. **Update `GamePlayer` model:** add `'last_read_message_id'` to `$fillable` and `'last_read_message_id' => 'integer'` to `$casts`.
+
+6. Run `php artisan migrate`.
+
+---
+
+### Backend Task 11.2 — Create `MessageController` with `index` and `store` endpoints
+
+**Goal:** Allow players to fetch all messages for a game and to send new messages.
+
+**File:** `app/Http/Controllers/MessageController.php`
+
+**Endpoints:**
+
+- **`GET /api/games/{game}/messages`** — returns all messages for the game, sorted oldest-first. Also marks all messages as read for the calling user by updating their `game_players.last_read_message_id` to the latest message's `id`.
+- **`POST /api/games/{game}/messages`** — sends a new message. Validates `content` (required, string, max 500). Returns the created message.
+
+**Implementation:**
+
+```php
+// index
+public function index(Game $game): JsonResponse
+{
+    $me = $request->user();
+    // Membership guard
+    $player = $game->players()->where('user_id', $me->id)->first();
+    abort_unless($player, 403);
+
+    $messages = $game->messages()
+        ->with('sender')
+        ->orderBy('id')
+        ->get()
+        ->map(fn ($m) => [
+            'id'            => $m->id,
+            'senderUserId'  => $m->sender_user_id,
+            'senderName'    => $game->players()
+                                   ->where('user_id', $m->sender_user_id)
+                                   ->value('name') ?? $m->sender->username,
+            'content'       => $m->content,
+            'createdAt'     => $m->created_at->toIso8601String(),
+        ]);
+
+    // Mark as read
+    if ($messages->isNotEmpty()) {
+        $player->update(['last_read_message_id' => $messages->last()['id']]);
+    }
+
+    return response()->json(['messages' => $messages]);
+}
+
+// store
+public function store(Request $request, Game $game): JsonResponse
+{
+    $me = $request->user();
+    $player = $game->players()->where('user_id', $me->id)->first();
+    abort_unless($player, 403);
+
+    $validated = $request->validate(['content' => ['required', 'string', 'max:500']]);
+
+    $msg = GameMessage::create([
+        'game_id'        => $game->id,
+        'sender_user_id' => $me->id,
+        'content'        => $validated['content'],
+    ]);
+
+    // Mark as read for sender immediately
+    $player->update(['last_read_message_id' => $msg->id]);
+
+    // Send push notifications to all other game members (Task 11.4)
+    // ...
+
+    $senderName = $player->name ?? $me->username;
+
+    return response()->json(['message' => [
+        'id'           => $msg->id,
+        'senderUserId' => $msg->sender_user_id,
+        'senderName'   => $senderName,
+        'content'      => $msg->content,
+        'createdAt'    => $msg->created_at->toIso8601String(),
+    ]], 201);
+}
+```
+
+Register both routes inside the `auth:sanctum` group in `routes/api.php`:
+```php
+Route::get('/games/{game}/messages', [MessageController::class, 'index']);
+Route::post('/games/{game}/messages', [MessageController::class, 'store']);
+```
+
+Update `docs/backend/api-contract.md` and `docs/project/current-state.md` with the two new endpoints.
+
+---
+
+### Backend Task 11.3 — Add `unread_message_count` to `GET /api/games` and `GET /api/games/{id}` responses
+
+**Goal:** The frontend needs to know how many unread messages exist per game without fetching the full message thread. Include this count on both the game list and game detail responses.
+
+**File:** `app/Http/Controllers/GameController.php`
+
+**Computation:** For the calling user's `GamePlayer` row, count messages in `game_messages` where `id > game_players.last_read_message_id` AND `sender_user_id != me.id`. When `last_read_message_id` is null, all messages from others are unread.
+
+**`index` update:**
+
+Add a subquery or eager-load to compute `unread_message_count` per game. The safest approach is a raw subquery on the game collection after the main query:
+
+```php
+$myPlayerId = /* the GamePlayer id for current user in this game */;
+$unread = GameMessage::where('game_id', $game->id)
+    ->where('sender_user_id', '!=', $me->id)
+    ->when($player->last_read_message_id, fn ($q, $lastRead) =>
+        $q->where('id', '>', $lastRead)
+    )
+    ->count();
+```
+
+Add `'unread_message_count' => $unread` to each game's response array.
+
+**`show` update:** apply the same computation to the single game detail response.
+
+Update `docs/backend/api-contract.md` and `docs/project/current-state.md`.
+
+---
+
+### Backend Task 11.4 — Send push notification to game members when a new message is posted
+
+**Goal:** When a player sends a message, all other human players in the game receive a push notification so they know a message is waiting.
+
+**File:** `app/Http/Controllers/MessageController.php` (`store` method)
+
+**Requirements:**
+
+After the `GameMessage` is created (and outside any transaction), iterate over all `game_players` for the game:
+- Skip the sender (`user_id === $me->id`).
+- Skip AI players (rows where `user_id` is null or the player is an AI slot — check the existing AI-player pattern used in `TurnController`).
+- For each remaining human player, load their `User` record and call `$this->notificationService->sendPushNotification($user, $title, $body)`.
+
+**Notification copy:**
+- **Title:** the game name, e.g. `"$game->name"`
+- **Body:** `"$senderName: $truncatedContent"` — truncate `content` to 80 characters if longer (append `"..."`)
+
+Inject `NotificationService` via the constructor, matching the existing pattern in `TurnController`.
+
+Update `docs/backend/notifications.md` with the new notification event.
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |

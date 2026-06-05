@@ -52,15 +52,19 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `GET /users/search?q=` — `{ users: [{ id, username, friendship_status }] }`
 
 **Games**
-- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, players, current_player_name, round_number, turn_number, created_at }] }`
+- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, players, current_player_name, round_number, turn_number, created_at, unread_message_count }] }`
 - `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`)
-- `GET /games/{game}` — members only (403 otherwise) — `{ game, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`
+- `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., unread_message_count }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`
 - `DELETE /games/{game}` — creator only, any status — 200 `{ message }`
 
 **Turns**
 - `POST /games/{game}/turn/save` — current player only — field: `in_progress_actions` (object)
 - `POST /games/{game}/turn/submit` — current player only — fields: `actions` (array), `resulting_state` (object), `turn_number`, `round_number`, optional `events` (array, stored in `turns.events_json`)
 - `POST /games/{game}/turn/abandon` — current player only — clears mid-turn save only
+
+**Messages**
+- `GET /games/{game}/messages` — members only — `{ messages: [{ id, senderUserId, senderName, content, createdAt }] }` — also marks all messages as read for the calling user
+- `POST /games/{game}/messages` — members only — field: `content` (string, max 500) — 201 `{ message: { id, senderUserId, senderName, content, createdAt } }` — sends push notification to all other human players
 
 **Invites**
 - `GET /invites` — pending invites where invitee = me
@@ -69,7 +73,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 
 ## Current Database Tables
 
-`users`, `friendships`, `games`, `game_players`, `game_invites`, `turns`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
+`users`, `friendships`, `games`, `game_players`, `game_invites`, `turns`, `game_messages`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
 
 ## Current Game-Engine Status
 
@@ -106,6 +110,19 @@ Work through these in order. Each task should be implemented, tested, and marked
 3. ~~**Phase 18 — Play with Friends: Creator-First Start**~~ — Complete (2026-05-31). Tasks 151–154 done.
 
 4. ~~**Allow creator to delete a game regardless of status**~~ — Complete (2026-05-31).
+
+---
+
+## Phase 11 — Feature: In-Game Messaging System
+
+**Status:** Not started. See `docs/project/roadmap.md` Phase 11 for full task specifications.
+
+Four tasks to add per-game player messaging with unread count tracking and push notifications:
+
+- ~~**Backend Task 11.1**~~ — Create `game_messages` table, `GameMessage` model, and `last_read_message_id` column on `game_players` *(complete 2026-06-05)*
+- ~~**Backend Task 11.2**~~ — Create `MessageController` with `GET /api/games/{game}/messages` and `POST /api/games/{game}/messages` *(complete 2026-06-05)*
+- ~~**Backend Task 11.3**~~ — Add `unread_message_count` to `GET /api/games` and `GET /api/games/{id}` responses *(complete 2026-06-05)*
+- **Backend Task 11.4** — Send push notification to all other game members when a message is posted
 
 ---
 

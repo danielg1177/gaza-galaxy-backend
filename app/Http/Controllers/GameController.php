@@ -45,6 +45,7 @@ class GameController extends Controller
             };
 
             $currentPlayer = $game->players->firstWhere('user_id', $game->current_user_id);
+            $player = $game->players->firstWhere('user_id', $me->id);
 
             return [
                 'id' => $game->id,
@@ -65,6 +66,7 @@ class GameController extends Controller
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
                 'created_at' => $game->created_at->toIso8601String(),
+                'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $player->last_read_message_id),
             ];
         })->values();
 
@@ -218,7 +220,8 @@ class GameController extends Controller
     {
         $me = $request->user();
 
-        if (! GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->exists()) {
+        $myPlayer = GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->first();
+        if (! $myPlayer) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -292,6 +295,7 @@ class GameController extends Controller
                 'play_mode' => 'async_multiplayer',
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
+                'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $myPlayer->last_read_message_id),
             ],
             'state_json' => $game->state_json,
             'is_my_turn' => $isMyTurn,
@@ -340,6 +344,14 @@ class GameController extends Controller
         $game->delete();
 
         return response()->json(['message' => 'Game deleted']);
+    }
+
+    private function unreadMessageCount(int $gameId, int $meId, ?int $lastReadId): int
+    {
+        return \App\Models\GameMessage::where('game_id', $gameId)
+            ->where('sender_user_id', '!=', $meId)
+            ->when($lastReadId !== null, fn ($q) => $q->where('id', '>', $lastReadId))
+            ->count();
     }
 
     private function isAcceptedFriend(int $creatorId, int $userId): bool

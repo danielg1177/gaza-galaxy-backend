@@ -327,6 +327,41 @@
 
 ---
 
+## 2026-06-05 — Backend Task 11.3: `unread_message_count` in `GET /api/games` and `GET /api/games/{id}`
+
+**Status:** Complete
+
+- Added private `unreadMessageCount(int $gameId, int $meId, ?int $lastReadId): int` helper to `GameController`; counts `game_messages` where `sender_user_id != $meId` and (if `$lastReadId` is set) `id > $lastReadId`
+- `index`: `unread_message_count` added to each game's response array using the existing `$player` GamePlayer row
+- `show`: `unread_message_count` added inside the `game` response object using the existing `$myPlayer` GamePlayer row
+
+---
+
+## 2026-06-05 — Backend Task 11.2: `MessageController` with `index` and `store` endpoints
+
+**Status:** Complete
+
+- Created `app/Http/Controllers/MessageController.php` with `index` (GET) and `store` (POST)
+- `index`: membership guard (403), fetches all messages ordered by id with `sender` eager-load, maps to `{ id, senderUserId, senderName, content, createdAt }`, updates `game_players.last_read_message_id` to latest message id after fetch
+- `store`: membership guard (403), validates `content` (required, string, max 500), creates `GameMessage`, marks sender as read, sends push notification to all other non-null human `game_players` with truncated content (80 chars), returns 201 with created message shape
+- Routes `GET /games/{game}/messages` and `POST /games/{game}/messages` added to `auth:sanctum` group in `routes/api.php`
+- Confirmed `GamePlayer::user()` belongsTo relationship already present
+
+---
+
+## 2026-06-05 — Backend Task 11.1: `game_messages` table, `GameMessage` model, `last_read_message_id` on `game_players`
+
+**Status:** Complete
+
+- Migration `2026_06_05_200208_create_game_messages_table.php`: `game_messages` table with `id`, `game_id` (FK → games, cascade delete), `sender_user_id` (FK → users, cascade delete), `content` (text), `timestamps()`; index on `game_id`
+- Migration `2026_06_05_200208_add_last_read_message_id_to_game_players_table.php`: nullable `unsignedBigInteger` `last_read_message_id` added to `game_players` after `name`
+- `GameMessage` model: `$fillable = ['game_id', 'sender_user_id', 'content']`; integer casts; `game()` and `sender()` belongsTo relationships
+- `Game` model: `messages()` hasMany `GameMessage` added
+- `GamePlayer` model: `last_read_message_id` added to `$fillable` and `$casts`
+- `php artisan migrate` ran successfully
+
+---
+
 ## 2026-06-01 — Task 189: Return latest_events from GET /api/games/{id}
 
 **Status:** Complete

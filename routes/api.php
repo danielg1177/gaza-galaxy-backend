@@ -35,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/games/{game}/turn/save', [TurnController::class, 'save']);
     Route::post('/games/{game}/turn/submit', [TurnController::class, 'submit']);
     Route::post('/games/{game}/turn/abandon', [TurnController::class, 'abandon']);
+    Route::get('/games/{game}/messages', [\App\Http\Controllers\MessageController::class, 'index']);
+    Route::post('/games/{game}/messages', [\App\Http\Controllers\MessageController::class, 'store']);
 
     Route::get('/invites', [InviteController::class, 'index']);
     Route::post('/invites/{invite}/accept', [InviteController::class, 'accept']);
