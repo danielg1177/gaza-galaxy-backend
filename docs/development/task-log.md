@@ -368,3 +368,11 @@
 
 - `GameController::show()`: queries the latest submitted `Turn` (`resulting_state_json` not null, ordered by `turn_number` / `round_number` desc); decodes `events_json` into `latest_events`, or `[]` when absent
 - Docs updated: `api-contract.md`, `project/current-state.md`, `development/known-issues.md`, `frontend/docs/tasks/backlog.md`, `frontend/docs/tasks/completed.md`
+
+---
+
+## 2026-06-08 — Backend Task 12.1: Expand in_progress_actions_json column to LONGTEXT
+
+**Status:** Complete
+
+- Created migration `2026_06_08_000001_expand_in_progress_actions_json_on_turns_table.php` to change `turns.in_progress_actions_json` from TEXT to LONGTEXT, and updated `database-schema.md` to reflect the new column type.

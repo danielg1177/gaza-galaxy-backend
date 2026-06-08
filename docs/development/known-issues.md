@@ -2,7 +2,26 @@
 
 ## Open Issues
 
-_None._
+### ~~`turns.in_progress_actions_json` TEXT column too small for complex game states~~ (2026-06-08, resolved 2026-06-08)
+
+**Symptom:** In an async multiplayer game, tapping **Exit Game** mid-turn fails with a 500 error in complex / late-game sessions. Early in a game (small state) the save succeeds; deep in a game (many planets captured, many buildings built, multiple fleets in transit) it fails.
+
+**Root cause:** `TurnController::save` stores the player's partial turn state via:
+
+```php
+Turn::updateOrCreate(
+    [...],
+    ['in_progress_actions_json' => json_encode($request->in_progress_actions)]
+);
+```
+
+The `in_progress_actions_json` column was created as `TEXT` in the original `create_turns_table` migration. MySQL `TEXT` has a maximum of **65,535 bytes**. In a complex game, `$request->in_progress_actions['partial_state_json']` can be a 30–50 KB string on its own; once PHP's `json_encode` wraps it inside the outer object (escaping every double-quote and backslash), the result exceeds 64 KB. MySQL strict mode (the Railway default) throws "Data too long for column 'in_progress_actions_json'", which Laravel propagates as a 500 error.
+
+By contrast, `turns.resulting_state_json` was created as `LONGTEXT` (4 GB limit), which is why `TurnController::submit` never fails for large states.
+
+**Fix (Backend Phase 12, Task 12.1):** Create a new migration to change `in_progress_actions_json` from `TEXT` to `LONGTEXT`. No code changes required — only the column type.
+
+See `docs/project/roadmap.md` Phase 12 for the full task specification.
 
 ## Resolved Issues
 

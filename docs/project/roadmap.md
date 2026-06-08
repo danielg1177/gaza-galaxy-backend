@@ -374,6 +374,62 @@ Update `docs/backend/notifications.md` with the new notification event.
 
 ---
 
+## Phase 12 — Bug Fix: `turns.in_progress_actions_json` Column Too Small
+
+**Status:** Complete (2026-06-08).
+
+One migration to fix the "Exit Game mid-turn fails in complex games" bug. See `docs/development/known-issues.md` for the full root-cause write-up.
+
+---
+
+### Backend Task 12.1 — Migrate `turns.in_progress_actions_json` from TEXT to LONGTEXT
+
+**File:** `backend/database/migrations/` (new migration file)
+
+**Root cause recap:** `in_progress_actions_json` was created as `TEXT` (max 65,535 bytes). A complex late-game state JSON-encoded by PHP can exceed that limit, causing MySQL strict-mode to throw "Data too long for column" → 500 → frontend "Could not save your progress." The `resulting_state_json` column was correctly created as `LONGTEXT` from the start; this migration brings `in_progress_actions_json` in line with it.
+
+**Requirements:**
+
+1. Create `backend/database/migrations/2026_06_08_000001_expand_in_progress_actions_json_on_turns_table.php`:
+
+   ```php
+   <?php
+
+   use Illuminate\Database\Migrations\Migration;
+   use Illuminate\Database\Schema\Blueprint;
+   use Illuminate\Support\Facades\Schema;
+
+   return new class extends Migration
+   {
+       public function up(): void
+       {
+           Schema::table('turns', function (Blueprint $table) {
+               $table->longText('in_progress_actions_json')->nullable()->change();
+           });
+       }
+
+       public function down(): void
+       {
+           Schema::table('turns', function (Blueprint $table) {
+               $table->text('in_progress_actions_json')->nullable()->change();
+           });
+       }
+   };
+   ```
+
+2. Run `php artisan migrate` on the production database.
+
+3. Update `docs/backend/database-schema.md`: change `in_progress_actions_json` column type from `text` to `longtext` in the `turns` table definition.
+
+4. Update `docs/development/task-log.md` with a completion entry.
+
+**Verification:**
+- `php artisan migrate:status` shows the new migration as `Ran`.
+- In a long-running game session, **⋮ → Exit Game** succeeds without error.
+- Re-entering the game restores the saved in-progress state correctly.
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |
