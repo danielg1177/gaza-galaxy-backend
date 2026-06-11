@@ -289,13 +289,16 @@ Auth required. User must be a member (`game_players`).
   },
   "latest_events": [
     { "type": "combat", "planetId": "p-7", "attackerId": "player-0", "defenderId": "player-1" }
-  ]
+  ],
+  "final_state_json": null
 }
 ```
 
 `in_progress_actions` is `null` (or absent) when there is no mid-turn save, and is **never returned to a player who is not the current player** (see `privacy-rules.md`).
 
 `latest_events` is an array of `TurnEvent` objects from the most recently submitted turn for this game (the `turns` row with non-null `resulting_state_json`, highest `turn_number` then `round_number`). Empty array `[]` when no submitted turn exists or that turn has no stored events.
+
+`final_state_json` is the decoded `GameState` from the last submitted turn (`resulting_state_json` on the `turns` row with highest `turn_number` then `round_number`) when `game.status` is `finished`; `null` for in-progress or waiting games, or when no submitted turn exists.
 
 ---
 

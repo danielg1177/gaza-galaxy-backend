@@ -287,6 +287,18 @@ class GameController extends Controller
             }
         }
 
+        $finalStateJson = null;
+        if ($game->status === 'finished') {
+            $finalTurn = Turn::where('game_id', $game->id)
+                ->whereNotNull('resulting_state_json')
+                ->orderByDesc('turn_number')
+                ->orderByDesc('round_number')
+                ->first();
+            if ($finalTurn) {
+                $finalStateJson = json_decode($finalTurn->resulting_state_json, true);
+            }
+        }
+
         return response()->json([
             'game' => [
                 'id' => $game->id,
@@ -302,6 +314,7 @@ class GameController extends Controller
             'alert_state' => $alertState,
             'in_progress_actions' => $inProgressActions,
             'latest_events' => $latestEvents,
+            'final_state_json' => $finalStateJson,
         ]);
     }
 

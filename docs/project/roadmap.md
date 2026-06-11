@@ -430,6 +430,75 @@ One migration to fix the "Exit Game mid-turn fails in complex games" bug. See `d
 
 ---
 
+## Phase 13 — N/A: Multiplayer Knockout Farewell Turn (Backend — No Changes Required)
+
+After reviewing the actual `TurnController::submit()` implementation, no backend changes are needed for the farewell turn flow. The backend already:
+
+1. **Routes to any non-AI player the frontend specifies.** `submit()` reads `resulting_state.currentPlayerId` and sets `current_user_id` to that player's `user_id`. If the frontend sends `currentPlayerId = Player B` (an eliminated human), the backend sets `current_user_id = Player B` and sends them the standard "your turn" notification.
+2. **Ends the game when the frontend sends `status: 'finished'`.** The `if ($state['status'] === 'finished')` branch handles game-over, finds the winner from the non-eliminated players, and sends winner/loser notifications.
+3. **Sends a neutral notification already.** The existing notification body for a normal turn is `"It's your turn in {game}!"` — this is already neutral and does not reveal the outcome.
+
+All fixes for Phase 62 are **frontend-only** (see `frontend/docs/tasks/backlog.md` Phase 62, Tasks 243–244). Phase 13 is documented here for traceability only.
+
+---
+
+## Phase 14 — Feature: Finished Game State Retrieval
+
+Required before frontend Phase 63 (Finished Game Viewer) begins. Adds `final_state_json` to the `GET /api/games/{id}` response for finished games so the frontend can render the winner's final map.
+
+---
+
+### Backend Task 14.1 — Return `final_state_json` in `GET /api/games/{id}` for finished games
+
+**File:** `app/Http/Controllers/GameController.php`
+
+**Goal:** After a game ends, any participant should be able to fetch the winner's final game state so they can view the completed map.
+
+**Required change:**
+
+In `GameController::show()`, after the existing `latest_events` computation:
+
+```php
+$finalStateJson = null;
+if ($game->status === 'finished') {
+    $latestTurn = $game->turns()
+        ->whereNotNull('resulting_state_json')
+        ->orderByDesc('turn_number')
+        ->orderByDesc('round_number')
+        ->first();
+    if ($latestTurn) {
+        $finalStateJson = json_decode($latestTurn->resulting_state_json, true);
+    }
+}
+```
+
+Add `'final_state_json' => $finalStateJson` to the response array.
+
+For games with `status !== 'finished'`, `final_state_json` must be `null`. Do NOT expose partial in-progress state through this field.
+
+The full response shape becomes:
+```json
+{
+  "game": { ... },
+  "state_json": ...,
+  "is_my_turn": ...,
+  "alert_state": ...,
+  "in_progress_actions": ...,
+  "latest_events": [...],
+  "final_state_json": { ... } | null
+}
+```
+
+Update `docs/backend/api-contract.md`, `docs/backend/game-state.md`, `docs/project/current-state.md`, and `docs/development/task-log.md`.
+
+**Verification:**
+- `GET /api/games/{id}` for a finished game: `final_state_json` is a populated object matching the winner's last submitted `resulting_state`.
+- `GET /api/games/{id}` for an in-progress game: `final_state_json` is `null`.
+- Non-member requests receive 403.
+- The field does not expose any `in_progress_actions` or current player's private data.
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |

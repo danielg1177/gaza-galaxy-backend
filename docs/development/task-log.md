@@ -376,3 +376,12 @@
 **Status:** Complete
 
 - Created migration `2026_06_08_000001_expand_in_progress_actions_json_on_turns_table.php` to change `turns.in_progress_actions_json` from TEXT to LONGTEXT, and updated `database-schema.md` to reflect the new column type.
+
+---
+
+## 2026-06-11 — Backend Task 14.1: Return `final_state_json` in `GET /api/games/{id}` for finished games
+
+**Status:** Complete
+
+- `GameController::show()`: when `game.status` is `finished`, loads the last submitted `Turn` (`resulting_state_json` not null, ordered by `turn_number` / `round_number` desc) and returns its decoded state as `final_state_json`; `null` otherwise
+- `api-contract.md`: documented `final_state_json` on the `GET /api/games/{id}` response
