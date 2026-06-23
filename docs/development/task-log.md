@@ -385,3 +385,15 @@
 
 - `GameController::show()`: when `game.status` is `finished`, loads the last submitted `Turn` (`resulting_state_json` not null, ordered by `turn_number` / `round_number` desc) and returns its decoded state as `final_state_json`; `null` otherwise
 - `api-contract.md`: documented `final_state_json` on the `GET /api/games/{id}` response
+
+---
+
+## 2026-06-23 — Backend Task 15.1: Use global max round_number for `latestEvents` on finished games
+
+**Status:** Complete
+
+**Bug:** When the losing player was eliminated on the winner's turn before they acted in that round, their own `max(round_number WHERE user_id = me)` was N-1 while the elimination combat events were stored in the winner's round N turn record. The loser received stale round N-1 events and never saw the final battle in the "View Final Battle" lock screen.
+
+**Fix:** `GameController::show()` — when `$game->status === 'finished'`, query `Turn::max('round_number')` without a `user_id` filter (global max across all submitted turns). The "active-game round-advance" concern that motivated the per-user query cannot apply to finished games.
+
+**File:** `backend/app/Http/Controllers/GameController.php`

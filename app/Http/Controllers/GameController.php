@@ -255,20 +255,30 @@ class GameController extends Controller
             }
         }
 
-        // Determine which round the requesting user most recently played so we
-        // can return the complete set of events for that round.  We need ALL
-        // turns from that round (not just the user's own) because in a
-        // multi-human game a teammate's turn record may contain combat events
-        // where the requesting player was the attacker or defender.
+        // Determine which round to fetch events from.
         //
-        // Using the global max(round_number) would be wrong here: in a 2-player
-        // game Player B (who submits first each round) advances the round counter
-        // before Player A (last submitter) even loads their result, so the global
-        // max points at B's new round — skipping A's combat events entirely.
-        $userLastRound = Turn::where('game_id', $game->id)
-            ->where('user_id', $me->id)
-            ->whereNotNull('resulting_state_json')
-            ->max('round_number');
+        // Active games: use the requesting user's own last submitted round.
+        // The global max(round_number) would be wrong here — in a 2-player game,
+        // Player B (who submits first each round) advances the round counter before
+        // Player A (last submitter) even loads their result, so the global max
+        // would point at B's new round and skip A's combat events entirely.
+        //
+        // Finished games: use the global max(round_number) across ALL submitted
+        // turns. When a player is eliminated on an opponent's turn (before ever
+        // getting to submit in that round), their own max round is N-1 while the
+        // elimination combat events live in the opponent's round N turn record.
+        // The "active game advancing" problem cannot occur on a finished game
+        // because there is no next round to advance to.
+        if ($game->status === 'finished') {
+            $userLastRound = Turn::where('game_id', $game->id)
+                ->whereNotNull('resulting_state_json')
+                ->max('round_number');
+        } else {
+            $userLastRound = Turn::where('game_id', $game->id)
+                ->where('user_id', $me->id)
+                ->whereNotNull('resulting_state_json')
+                ->max('round_number');
+        }
 
         $latestEvents = [];
         if ($userLastRound !== null) {

@@ -499,6 +499,22 @@ Update `docs/backend/api-contract.md`, `docs/backend/game-state.md`, `docs/proje
 
 ---
 
+---
+
+## Phase 15 — Bug Fix: Loser Cannot See Final Elimination Battle
+
+**Status:** Complete (2026-06-23).
+
+### Backend Task 15.1 — Use global max round_number for `latestEvents` on finished games
+
+**Root cause:** `GameController::show` computed `latestEvents` using the requesting user's own last submitted `round_number`. When a player is eliminated on an opponent's turn before they act in that round, their own max round is N-1 while the elimination combat events are stored in the opponent's round N turn record. The loser received stale round N-1 events (or no events) and never saw the final battle.
+
+**Fix:** When `$game->status === 'finished'`, query `Turn::max('round_number')` across all submitted turns (no `user_id` filter). For finished games the "active-game round-advance" concern cannot apply — there is no next round to advance to.
+
+**File:** `backend/app/Http/Controllers/GameController.php`
+
+---
+
 ## Future (Post-Launch)
 
 | Feature | When |
