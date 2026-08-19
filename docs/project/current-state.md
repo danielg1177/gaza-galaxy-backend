@@ -1,6 +1,6 @@
 # Current State
 
-_Last updated: 2026-05-31_
+_Last updated: 2026-08-19_
 
 ---
 
@@ -54,8 +54,10 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 **Games**
 - `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, players, current_player_name, round_number, turn_number, created_at, unread_message_count }] }`
 - `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`)
-- `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., unread_message_count }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`
+- `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members get `is_my_turn: false` / `alert_state: waiting`.
 - `DELETE /games/{game}` — creator only, any status — 200 `{ message }`
+- `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
+- `POST /games/{game}/rejoin` — sitting-out human member, in-progress, not eliminated — 200 `{ rejoined: true }`
 
 **Turns**
 - `POST /games/{game}/turn/save` — current player only — field: `in_progress_actions` (object)
@@ -73,7 +75,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 
 ## Current Database Tables
 
-`users`, `friendships`, `games`, `game_players`, `game_invites`, `turns`, `game_messages`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
+`users`, `friendships`, `games`, `game_players` (+ `is_forfeited`), `game_invites`, `turns`, `game_messages`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
 
 ## Current Game-Engine Status
 

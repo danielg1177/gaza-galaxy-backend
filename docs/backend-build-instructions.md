@@ -146,6 +146,7 @@ CREATE TABLE game_players (
   is_ai TINYINT(1) NOT NULL DEFAULT 0,
   ai_difficulty ENUM('easy', 'normal', 'hard') NULL,
   is_eliminated TINYINT(1) NOT NULL DEFAULT 0,
+  is_forfeited TINYINT(1) NOT NULL DEFAULT 0,
   home_planet_id VARCHAR(50) NOT NULL DEFAULT '',
   created_at TIMESTAMP NULL DEFAULT NULL,
   updated_at TIMESTAMP NULL DEFAULT NULL,

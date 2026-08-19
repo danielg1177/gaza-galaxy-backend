@@ -28,7 +28,9 @@ class GameController extends Controller
         $games = Game::whereIn('id', $gameIds)->with('players')->get();
 
         $gamesPayload = $games->map(function (Game $game) use ($me) {
-            $isMyTurn = $game->current_user_id === $me->id;
+            $player = $game->players->firstWhere('user_id', $me->id);
+            $iAmForfeited = $player?->is_forfeited === true;
+            $isMyTurn = $game->current_user_id === $me->id && ! $iAmForfeited;
             $hasInProgressActions = Turn::where('game_id', $game->id)
                 ->where('user_id', $me->id)
                 ->where('turn_number', $game->turn_number)
@@ -45,7 +47,6 @@ class GameController extends Controller
             };
 
             $currentPlayer = $game->players->firstWhere('user_id', $game->current_user_id);
-            $player = $game->players->firstWhere('user_id', $me->id);
 
             return [
                 'id' => $game->id,
@@ -56,17 +57,12 @@ class GameController extends Controller
                 'is_my_turn' => $isMyTurn,
                 'has_in_progress_actions' => $hasInProgressActions,
                 'winner_user_id' => $game->winner_user_id,
-                'players' => $game->players->map(fn (GamePlayer $player) => [
-                    'in_game_name' => $player->name,
-                    'is_ai' => $player->is_ai,
-                    'is_eliminated' => $player->is_eliminated,
-                    'user_id' => $player->user_id,
-                ])->values(),
+                'players' => $game->players->map(fn (GamePlayer $p) => $this->serializePlayer($p))->values(),
                 'current_player_name' => $currentPlayer?->name,
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
                 'created_at' => $game->created_at->toIso8601String(),
-                'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $player->last_read_message_id),
+                'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $player?->last_read_message_id),
             ];
         })->values();
 
@@ -202,11 +198,7 @@ class GameController extends Controller
                 'is_my_turn' => $isMyTurn,
                 'has_in_progress_actions' => false,
                 'winner_user_id' => $game->winner_user_id,
-                'players' => collect($result['players'])->map(fn (GamePlayer $player) => [
-                    'in_game_name' => $player->name,
-                    'is_ai' => $player->is_ai,
-                    'is_eliminated' => $player->is_eliminated,
-                ])->values(),
+                'players' => collect($result['players'])->map(fn (GamePlayer $player) => $this->serializePlayer($player))->values(),
                 'current_player_name' => $currentPlayer?->name,
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
@@ -225,7 +217,8 @@ class GameController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $isMyTurn = $game->current_user_id === $me->id;
+        $iAmForfeited = $myPlayer->is_forfeited === true;
+        $isMyTurn = $game->current_user_id === $me->id && ! $iAmForfeited;
         $hasInProgressActions = Turn::where('game_id', $game->id)
             ->where('user_id', $me->id)
             ->where('turn_number', $game->turn_number)
@@ -318,6 +311,7 @@ class GameController extends Controller
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
                 'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $myPlayer->last_read_message_id),
+                'players' => $game->players()->orderBy('turn_order')->get()->map(fn (GamePlayer $player) => $this->serializePlayer($player))->values(),
             ],
             'state_json' => $game->state_json,
             'is_my_turn' => $isMyTurn,
@@ -367,6 +361,82 @@ class GameController extends Controller
         $game->delete();
 
         return response()->json(['message' => 'Game deleted']);
+    }
+
+    public function forfeit(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+        $player = GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->first();
+
+        if ($player === null) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($game->status !== 'in_progress') {
+            return response()->json(['message' => 'Game is not in progress'], 422);
+        }
+
+        if ($player->is_ai || $player->user_id === null) {
+            return response()->json(['message' => 'Only human players can forfeit'], 422);
+        }
+
+        if ($player->is_eliminated) {
+            return response()->json(['message' => 'Eliminated players cannot forfeit'], 422);
+        }
+
+        if ($player->is_forfeited) {
+            return response()->json(['message' => 'Already sitting out'], 422);
+        }
+
+        $player->update(['is_forfeited' => true]);
+
+        if ($game->current_user_id == $me->id) {
+            Turn::where('game_id', $game->id)
+                ->where('user_id', $me->id)
+                ->where('turn_number', $game->turn_number)
+                ->where('round_number', $game->round_number)
+                ->whereNull('resulting_state_json')
+                ->update(['in_progress_actions_json' => null]);
+        }
+
+        return response()->json(['forfeited' => true]);
+    }
+
+    public function rejoin(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+        $player = GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->first();
+
+        if ($player === null) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($game->status !== 'in_progress') {
+            return response()->json(['message' => 'Game is not in progress'], 422);
+        }
+
+        if ($player->is_eliminated) {
+            return response()->json(['message' => 'Eliminated players cannot rejoin'], 422);
+        }
+
+        if (! $player->is_forfeited) {
+            return response()->json(['message' => 'You are not sitting out'], 422);
+        }
+
+        $player->update(['is_forfeited' => false]);
+
+        return response()->json(['rejoined' => true]);
+    }
+
+    private function serializePlayer(GamePlayer $player): array
+    {
+        return [
+            'in_game_name' => $player->name,
+            'is_ai' => $player->is_ai,
+            'is_eliminated' => $player->is_eliminated,
+            'is_forfeited' => $player->is_forfeited,
+            'user_id' => $player->user_id,
+        ];
     }
 
     private function unreadMessageCount(int $gameId, int $meId, ?int $lastReadId): int

@@ -111,6 +111,7 @@ CREATE TABLE game_players (
   is_ai TINYINT(1) NOT NULL DEFAULT 0,
   ai_difficulty ENUM('easy', 'normal', 'hard') NULL,
   is_eliminated TINYINT(1) NOT NULL DEFAULT 0,
+  is_forfeited TINYINT(1) NOT NULL DEFAULT 0,
   home_planet_id VARCHAR(50) NOT NULL DEFAULT '',
   created_at TIMESTAMP NULL DEFAULT NULL,
   updated_at TIMESTAMP NULL DEFAULT NULL,
@@ -128,6 +129,7 @@ CREATE TABLE game_players (
 | `user_id` | NULL for AI players. |
 | `home_planet_id` | Format `"p-{index}"` (e.g. `"p-0"`). Set when the game starts via `startGame()`. |
 | `is_eliminated` | Updated during turn submission when `resulting_state.players[i].isEliminated = true`. |
+| `is_forfeited` | Human is sitting out; AI plays their turns until they rejoin. Does not change `is_ai`. Set by `POST /games/{id}/forfeit`, cleared by `POST /games/{id}/rejoin`. |
 
 ---
 

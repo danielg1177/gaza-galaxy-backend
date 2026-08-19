@@ -217,9 +217,9 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
       "has_in_progress_actions": false,
       "winner_user_id": null,
       "players": [
-        { "in_game_name": "Dan", "is_ai": false, "is_eliminated": false, "user_id": 1 },
-        { "in_game_name": "Nova", "is_ai": false, "is_eliminated": false, "user_id": 5 },
-        { "in_game_name": "Zorg", "is_ai": true, "is_eliminated": false, "user_id": null }
+        { "in_game_name": "Dan", "is_ai": false, "is_eliminated": false, "is_forfeited": false, "user_id": 1 },
+        { "in_game_name": "Nova", "is_ai": false, "is_eliminated": false, "is_forfeited": false, "user_id": 5 },
+        { "in_game_name": "Zorg", "is_ai": true, "is_eliminated": false, "is_forfeited": false, "user_id": null }
       ],
       "current_player_name": "Dan",
       "round_number": 3,
@@ -231,6 +231,8 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
 ```
 
 `alert_state` values: `waiting_for_players` | `waiting` | `your_turn` | `in_progress` | `finished`
+
+Each player object includes `is_forfeited`. For a sitting-out member, `is_my_turn` is `false` and `alert_state` is `waiting` even if `current_user_id` still points at them.
 
 ---
 
@@ -278,7 +280,11 @@ Auth required. User must be a member (`game_players`).
     "status": "active",
     "play_mode": "async_multiplayer",
     "round_number": 3,
-    "turn_number": 12
+    "turn_number": 12,
+    "players": [
+      { "in_game_name": "Dan", "is_ai": false, "is_eliminated": false, "is_forfeited": false, "user_id": 1 },
+      { "in_game_name": "Nova", "is_ai": false, "is_eliminated": false, "is_forfeited": false, "user_id": 5 }
+    ]
   },
   "state_json": "{\"map\":{...},\"players\":[...],\"fleets\":[...],\"currentPlayerId\":\"player-0\",...}",
   "is_my_turn": true,
@@ -331,6 +337,38 @@ Auth required. Must be the game creator. Can be deleted regardless of game statu
 
 ---
 
+### `POST /api/games/{id}/forfeit`
+Auth required. User must be a human member of an in-progress game, not eliminated, and not already sitting out.
+
+Sets `game_players.is_forfeited = true`. Does not advance the turn pointer — the client must still submit an AI-resolved turn if it is currently that player's turn. Clears any unsubmitted mid-turn save for the caller.
+
+**Response 200:**
+```json
+{ "forfeited": true }
+```
+
+**Errors:**
+- `403` — not a member
+- `422` — game not in progress, already sitting out, eliminated, or AI slot
+
+---
+
+### `POST /api/games/{id}/rejoin`
+Auth required. User must be a human member who is currently sitting out and not eliminated.
+
+Clears `is_forfeited`. Does not interrupt another player's in-progress turn; the rejoining player takes over the next time the turn order reaches them.
+
+**Response 200:**
+```json
+{ "rejoined": true }
+```
+
+**Errors:**
+- `403` — not a member
+- `422` — game not in progress, not sitting out, or eliminated
+
+---
+
 ## Turns
 
 ### `POST /api/games/{id}/turn/save`
@@ -376,6 +414,10 @@ Auth required. Must be the current player.
 ```
 
 `turn_number` and `round_number` must match `games.turn_number` / `games.round_number`. If not: `409 { "message": "Stale submission — game state has advanced. Please reload." }`.
+
+If `resulting_state.currentPlayerId` maps to a created AI (`is_ai` and no `user_id`) or a sitting-out human (`is_forfeited`): `422 { "message": "Turn must advance to a playing human before submitting" }` (AI slots use the existing human-player message).
+
+`is_my_turn` is false and `alert_state` is `waiting` for a sitting-out member even if `games.current_user_id` still points at them.
 
 **Response 200:**
 ```json

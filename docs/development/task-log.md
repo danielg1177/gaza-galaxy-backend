@@ -1,5 +1,19 @@
 # Task Log
 
+## 2026-08-19 — Forfeit / rejoin (async sit-out)
+
+**Status:** Complete
+
+- Migration `2026_08_19_160000_add_is_forfeited_to_game_players_table` — `game_players.is_forfeited` boolean default false
+- `GamePlayer` fillable + boolean cast
+- `POST /api/games/{game}/forfeit` and `POST /api/games/{game}/rejoin` on `GameController`
+- List/create/show player payloads include `is_forfeited`; `GET /games/{id}` now returns `game.players`
+- Sitting-out members: `is_my_turn` false, `alert_state` `waiting`
+- `TurnController::submit` 422 if next player is forfeited; skip `your_turn` push for sitters
+- Forfeit on your turn clears unsubmitted `in_progress_actions_json`
+
+---
+
 ## 2026-05-29 — Sanctum & CORS Configuration
 
 **Status:** Complete

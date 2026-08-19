@@ -16,11 +16,13 @@ class GamePlayer extends Model
         'is_ai',
         'home_planet_id',
         'is_eliminated',
+        'is_forfeited',
     ];
 
     protected $casts = [
         'is_ai' => 'boolean',
         'is_eliminated' => 'boolean',
+        'is_forfeited' => 'boolean',
         'turn_order' => 'integer',
         'last_read_message_id' => 'integer',
     ];

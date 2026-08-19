@@ -131,6 +131,12 @@ class TurnController extends Controller
                     'message' => 'Turn must advance to a human player before submitting in async multiplayer',
                 ], 422);
             }
+
+            if ($nextPlayer->is_forfeited) {
+                return response()->json([
+                    'message' => 'Turn must advance to a playing human before submitting',
+                ], 422);
+            }
         }
 
         DB::transaction(function () use ($request, $game, $me, $state) {
@@ -228,15 +234,21 @@ class TurnController extends Controller
                 $game->status = 'waiting_for_players';
                 $game->save();
             } else {
-                $nextUser = User::find($game->current_user_id);
+                $nextPlayerRow = GamePlayer::where('game_id', $game->id)
+                    ->where('user_id', $game->current_user_id)
+                    ->first();
 
-                if ($nextUser) {
-                    $this->notificationService->sendPushNotification(
-                        $nextUser,
-                        config('app.name'),
-                        "It's your turn in {$game->name}!",
-                        ['game_id' => $game->id, 'event' => 'your_turn']
-                    );
+                if ($nextPlayerRow === null || ! $nextPlayerRow->is_forfeited) {
+                    $nextUser = User::find($game->current_user_id);
+
+                    if ($nextUser) {
+                        $this->notificationService->sendPushNotification(
+                            $nextUser,
+                            config('app.name'),
+                            "It's your turn in {$game->name}!",
+                            ['game_id' => $game->id, 'event' => 'your_turn']
+                        );
+                    }
                 }
             }
         }

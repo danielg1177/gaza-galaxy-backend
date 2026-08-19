@@ -7,7 +7,8 @@ The backend does not execute any game logic. Game rules, combat, fleet movement,
 3. Accept and store submitted state
 4. Advance game pointers (`current_user_id`, `turn_number`, `round_number`)
 5. Detect game completion and update `game_players.is_eliminated`
-6. Fire push notifications
+6. Fire push notifications (skip `your_turn` if the next human is sitting out)
+7. Reject submits whose `currentPlayerId` is a sitting-out human (`is_forfeited`)
 
 ---
 
@@ -19,6 +20,7 @@ Used in both `GET /api/games` and `GET /api/games/{id}`.
 IF games.status = 'waiting'          → 'waiting_for_players'
 IF games.status = 'finished'         → 'finished'
 IF games.status = 'active':
+  IF me is sitting out (game_players.is_forfeited) → 'waiting'
   IF games.current_user_id != me     → 'waiting'
   IF games.current_user_id = me:
     Look up turns WHERE:
@@ -63,6 +65,7 @@ The `in_progress_actions` blob:
 3. `round_number` in request must equal `games.round_number` → `409` if not.
 4. `resulting_state` must contain: `map`, `players`, `fleets`, `currentPlayerId`, `status`, `roundNumber` (structural check only).
 5. Optional `events` array (`nullable|array`) — client-computed turn events (`TurnEvent[]`). When present, stored as `events_json` on the turn row; when absent or null, `events_json` is NULL.
+6. `currentPlayerId` must not map to a created AI (`is_ai` and `user_id` null) or a sitting-out human (`is_forfeited`). Return `422`.
 
 ### State Advancement
 
@@ -95,7 +98,7 @@ Upsert the `turns` row:
 
 ### Notifications (after all DB writes)
 
-- Active game: send "Your Turn!" to the next human player
+- Active game: send "Your Turn!" to the next human player **unless** that `game_players` row has `is_forfeited = 1`
 - Finished game: send "Victory!" to winner; send "Game Over" to all other human players
 
 ---
@@ -191,7 +194,7 @@ The script is built from `src/game/` in the frontend repository and must be plac
 
 - The backend **never re-runs** the game engine on turn submission.
 - `state_json` is always the submitted `resulting_state`, stored as-is.
-- `currentPlayerId` in the submitted state is always a human player (the client resolves all AI turns first).
+- `currentPlayerId` in the submitted state is always a **playing** human (the client resolves created AI and sitting-out humans first). Sitting-out humans (`is_forfeited`) are rejected.
 - If `resulting_state.status = 'finished'`, the game ends immediately — no further turns are possible.
 
 ---
