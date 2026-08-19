@@ -58,6 +58,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `DELETE /games/{game}` — creator only, any status — 200 `{ message }`
 - `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
 - `POST /games/{game}/rejoin` — sitting-out human member, in-progress, not eliminated — 200 `{ rejoined: true }`
+- `POST /games/{game}/end` — any human member, in-progress — 200 `{ ended: true }` — finishes the match for everyone (`winner_user_id` null)
 
 **Turns**
 - `POST /games/{game}/turn/save` — current player only — field: `in_progress_actions` (object)
@@ -97,7 +98,7 @@ _None._
 
 ## Last Completed Task
 
-**All API contract corrections** (2026-05-31) — 13 discrepancies between implementation and `docs/backend/api-contract.md` resolved across 11 correction prompts: route paths, response shapes, missing endpoints, `abandon` behavior, privacy rules, and query optimizations.
+**End game for all players** (2026-08-19) — `POST /api/games/{game}/end` lets any human member finish an in-progress match for everyone. Distinct from forfeit (sit-out) and creator-only delete. Other humans are notified (`event: game_ended`).
 
 ## Pending Tasks
 

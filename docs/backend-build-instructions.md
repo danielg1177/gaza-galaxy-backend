@@ -628,6 +628,20 @@ Auth required. Must be the creator. Only when `status = 'waiting'`.
 
 ---
 
+#### `POST /api/games/{id}/end`
+Auth required. Any human member of an in-progress game.
+
+**Logic:**
+1. Verify caller is a human `game_players` member. 403 if not.
+2. Verify `games.status = 'in_progress'` (or `'active'` in older docs). 422 if not.
+3. Set `status = 'finished'`, `current_user_id = null`, `winner_user_id = null`.
+4. Patch `state_json.status` to `"finished"` and `state_json.winnerId` to `null`.
+5. Notify all other human players.
+
+**Response (200):** `{ "ended": true }`
+
+---
+
 ### 4.5 Turns
 
 #### `POST /api/games/{id}/turn/save`
@@ -955,6 +969,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('games', [GameController::class, 'store']);
     Route::get('games/{game}', [GameController::class, 'show']);
     Route::delete('games/{game}', [GameController::class, 'destroy']);
+    Route::post('games/{game}/end', [GameController::class, 'endGame']);
 
     // Turns
     Route::post('games/{game}/turn/save', [TurnController::class, 'save']);

@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/games/{game}', [GameController::class, 'destroy']);
     Route::post('/games/{game}/forfeit', [GameController::class, 'forfeit']);
     Route::post('/games/{game}/rejoin', [GameController::class, 'rejoin']);
+    Route::post('/games/{game}/end', [GameController::class, 'endGame']);
     Route::post('/games/{game}/turn/save', [TurnController::class, 'save']);
     Route::post('/games/{game}/turn/submit', [TurnController::class, 'submit']);
     Route::post('/games/{game}/turn/abandon', [TurnController::class, 'abandon']);

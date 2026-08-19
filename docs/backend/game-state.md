@@ -6,6 +6,8 @@
 
 The backend treats `state_json` as an **opaque string** — it stores and returns it as-is, never mutates individual fields within it, and only reads top-level fields during turn submission for validation and pointer advancement.
 
+**Exception (2026-08-19):** `POST /games/{id}/end` patches `state_json.status` to `"finished"` and `state_json.winnerId` to `null` so clients loading the last committed blob see an ended match with no winner. Turn submit still replaces `state_json` in full.
+
 ---
 
 ## Storage

@@ -1,5 +1,18 @@
 # Task Log
 
+## 2026-08-19 — End game for all players
+
+**Status:** Complete
+
+- `POST /api/games/{game}/end` on `GameController::endGame`
+- Any human member of an in-progress game (not creator-only)
+- Sets `status = finished`, `current_user_id = null`, `winner_user_id = null`
+- Patches `state_json` `status` / `winnerId` so clients see an ended match with no winner
+- Push `event: game_ended` to every other human player
+- Distinct from forfeit (sit-out) and `DELETE` (creator-only row removal)
+
+---
+
 ## 2026-08-19 — Forfeit / rejoin (async sit-out)
 
 **Status:** Complete

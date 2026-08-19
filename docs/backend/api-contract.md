@@ -369,6 +369,22 @@ Clears `is_forfeited`. Does not interrupt another player's in-progress turn; the
 
 ---
 
+### `POST /api/games/{id}/end`
+Auth required. Any human member of an in-progress game (not just the creator). Distinct from forfeit (sit-out) and from delete (creator-only row removal).
+
+Sets `games.status = 'finished'`, `current_user_id = null`, and `winner_user_id = null`. Patches `state_json` so `status` is `"finished"` and `winnerId` is `null`. Notifies all other human players.
+
+**Response 200:**
+```json
+{ "ended": true }
+```
+
+**Errors:**
+- `403` — not a member
+- `422` — game not in progress, or caller is an AI slot
+
+---
+
 ## Turns
 
 ### `POST /api/games/{id}/turn/save`

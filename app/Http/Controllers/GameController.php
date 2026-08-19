@@ -428,6 +428,60 @@ class GameController extends Controller
         return response()->json(['rejoined' => true]);
     }
 
+    public function endGame(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+        $player = GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->first();
+
+        if ($player === null) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($player->is_ai || $player->user_id === null) {
+            return response()->json(['message' => 'Only human players can end a game'], 422);
+        }
+
+        if ($game->status !== 'in_progress') {
+            return response()->json(['message' => 'Game is not in progress'], 422);
+        }
+
+        $state = json_decode($game->state_json ?? '', true);
+        if (is_array($state)) {
+            $state['status'] = 'finished';
+            $state['winnerId'] = null;
+            $game->state_json = json_encode($state);
+        }
+
+        $game->status = 'finished';
+        $game->current_user_id = null;
+        $game->winner_user_id = null;
+        $game->save();
+
+        $otherHumans = GamePlayer::where('game_id', $game->id)
+            ->where('is_ai', false)
+            ->whereNotNull('user_id')
+            ->where('user_id', '!=', $me->id)
+            ->with('user')
+            ->get();
+
+        $enderName = $player->name ?: $me->username;
+
+        foreach ($otherHumans as $other) {
+            if ($other->user === null) {
+                continue;
+            }
+
+            $this->notificationService->sendPushNotification(
+                $other->user,
+                $game->name,
+                "{$enderName} ended the game for all players.",
+                ['game_id' => $game->id, 'event' => 'game_ended']
+            );
+        }
+
+        return response()->json(['ended' => true]);
+    }
+
     private function serializePlayer(GamePlayer $player): array
     {
         return [
