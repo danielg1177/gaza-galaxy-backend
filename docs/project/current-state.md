@@ -1,6 +1,6 @@
 # Current State
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-25_
 
 ---
 
@@ -36,6 +36,8 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 **Auth (protected)**
 - `POST /auth/logout` — 200 `{ message }`
 - `GET /auth/me` — 200 `{ id, username }`
+- `PATCH /auth/username` — 200 `{ id, username }` — field: `username`
+- `PATCH /auth/password` — 200 `{ message }` — fields: `current_password`, `password`, `password_confirmation` (422 if current password is wrong)
 
 **Push token**
 - `POST /push-token` — 200 `{ saved: true }` — field: `token`
@@ -98,7 +100,7 @@ _None._
 
 ## Last Completed Task
 
-**End game for all players** (2026-08-19) — `POST /api/games/{game}/end` lets any human member finish an in-progress match for everyone. Distinct from forfeit (sit-out) and creator-only delete. Other humans are notified (`event: game_ended`).
+**Account settings** (2026-08-25) — `PATCH /api/auth/username` and `PATCH /api/auth/password` let a signed-in user change their login username or password. Username change does not rewrite in-game commander names. Wrong current password returns 422.
 
 ## Pending Tasks
 

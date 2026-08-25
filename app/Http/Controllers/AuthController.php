@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdatePasswordRequest;
+use App\Http\Requests\UpdateUsernameRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,5 +65,32 @@ class AuthController extends Controller
             'id' => $user->id,
             'username' => $user->username,
         ]);
+    }
+
+    public function updateUsername(UpdateUsernameRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update(['username' => $request->username]);
+
+        return response()->json([
+            'id' => $user->id,
+            'username' => $user->username,
+        ]);
+    }
+
+    public function updatePassword(UpdatePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect',
+                'errors' => ['current_password' => ['Current password is incorrect']],
+            ], 422);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        return response()->json(['message' => 'Password updated']);
     }
 }

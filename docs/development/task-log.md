@@ -1,5 +1,17 @@
 # Task Log
 
+## 2026-08-25 — Account settings (username / password)
+
+**Status:** Complete
+
+- `PATCH /api/auth/username` on `AuthController::updateUsername` — unique username, same charset as register (3–32, alphanumeric + underscore)
+- `PATCH /api/auth/password` on `AuthController::updatePassword` — current password + confirmed new password (min 6)
+- Wrong current password returns 422 `{ message, errors.current_password }` (not 401)
+- Username change does not rewrite `game_players` commander names or `state_json` player names
+- Current Sanctum token stays valid after password change
+
+---
+
 ## 2026-08-19 — End game for all players
 
 **Status:** Complete

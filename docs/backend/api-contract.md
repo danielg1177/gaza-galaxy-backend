@@ -79,6 +79,49 @@ Auth required.
 
 ---
 
+### `PATCH /api/auth/username`
+Auth required.
+
+**Request:**
+```json
+{ "username": "string" }
+```
+
+**Validation:** `username` required | string | min:3 | max:32 | regex:`/^[a-zA-Z0-9_]+$/` | unique in `users` except the current user.
+
+**Response 200:**
+```json
+{ "id": 1, "username": "new_name" }
+```
+
+Does not rewrite `game_players` commander names or `state_json` player names.
+
+---
+
+### `PATCH /api/auth/password`
+Auth required.
+
+**Request:**
+```json
+{ "current_password": "string", "password": "string", "password_confirmation": "string" }
+```
+
+**Validation:** `current_password` required; `password` min 6, confirmed.
+
+**Response 200:**
+```json
+{ "message": "Password updated" }
+```
+
+**Response 422:**
+```json
+{ "message": "Current password is incorrect", "errors": { "current_password": ["Current password is incorrect"] } }
+```
+
+Wrong current password is 422, not 401. Current Sanctum token stays valid.
+
+---
+
 ## Push Token
 
 ### `POST /api/push-token`

@@ -47,6 +47,37 @@ Returns `{ "id": 1, "username": "commander_dan" }`.
 
 ---
 
+## Change Username
+
+`PATCH /api/auth/username` — auth required.
+
+**Validation:**
+- `username`: required | string | min:3 | max:32 | regex:`/^[a-zA-Z0-9_]+$/` | unique in `users` except the authenticated user
+
+**Logic:**
+1. Update `users.username`.
+2. Return `{ "id", "username" }`.
+3. Do **not** rewrite `game_players` commander names or `state_json` player names. Username is the account login identity; in-game names are per-campaign.
+
+---
+
+## Change Password
+
+`PATCH /api/auth/password` — auth required.
+
+**Validation:**
+- `current_password`: required | string
+- `password`: required | string | min:6 | confirmed
+
+**Logic:**
+1. `Hash::check($request->current_password, $user->password)` — return **422** if false (not 401; 401 would log the client out).
+2. Update `password` (hashed via the User model cast).
+3. Keep the current Sanctum token. Other devices stay signed in.
+
+There is still no email-based password reset. This endpoint is for a signed-in user who knows their current password.
+
+---
+
 ## Token Lifecycle
 
 | Rule | Detail |
@@ -79,5 +110,6 @@ class User extends Authenticatable {
 ## No Email / No Password Reset
 
 - There is no `email` column.
-- Password resets are admin-only (manual database update).
+- Unauthenticated password resets are admin-only (manual database update).
+- A signed-in user can change their password via `PATCH /api/auth/password` if they know the current password.
 - Username is the sole identifier for login and friend search.
