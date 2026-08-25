@@ -31,7 +31,8 @@ This lives in `app/Services/NotificationService.php`.
 | Event | Trigger | Recipients | Title | Body | `data` payload |
 |-------|---------|-----------|-------|------|----------------|
 | Turn submitted | `POST /turn/submit` (active game) | Next **playing** human (`is_forfeited = 0`) | "Your Turn!" | "It's your turn in {game.name}" | `{ game_id, event: "your_turn" }` |
-| Game started | `startGame()` | First human player | "Game Started!" | "'{game.name}' has started — it's your first turn!" | `{ game_id, event: "game_started" }` |
+| Game started | `startGame()` / `POST /games/{id}/start` | First human player | "Game Started!" | "'{game.name}' has started — it's your first turn!" | `{ game_id, event: "game_started" }` |
+| Matchmaking started (others) | `POST /games/{id}/start` | Every other human in the roster | "{game.name}" | "'{game.name}' has started. You'll be notified when it's your turn." | `{ game_id, event: "game_started" }` |
 | Game invite | `POST /api/games` | Each invited user | "Game Invite" | "{creator_username} invited you to play" | `{ game_id, event: "invite_received" }` |
 | Invite accepted | `POST /invites/{id}/accept` | Game creator | "Invite Accepted" | "{username} accepted your invite" | `{ game_id, event: "invite_accepted" }` |
 | Invite declined | `POST /invites/{id}/decline` | Game creator | "Invite Declined" | "{username} declined — game cancelled" | `{ game_id, event: "game_cancelled" }` |

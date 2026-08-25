@@ -74,6 +74,8 @@ A player cannot save or submit a turn that is not currently theirs.
 
 `GET /api/games` (the list endpoint) never returns `state_json`. Only `GET /api/games/{id}` (the detail endpoint, with membership verification) returns the full state.
 
+`GET /api/games/open` lists waiting matchmaking lobbies for any signed-in user, but only settings and seat counts — never `state_json` or mid-turn data.
+
 ---
 
 ## Rule 5: Invite Privacy

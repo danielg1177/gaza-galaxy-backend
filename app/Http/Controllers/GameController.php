@@ -57,6 +57,8 @@ class GameController extends Controller
                 'is_my_turn' => $isMyTurn,
                 'has_in_progress_actions' => $hasInProgressActions,
                 'winner_user_id' => $game->winner_user_id,
+                'is_open_lobby' => $this->isMatchmakingLobby($game),
+                'map_config' => $this->decodeMapConfig($game),
                 'players' => $game->players->map(fn (GamePlayer $p) => $this->serializePlayer($p))->values(),
                 'current_player_name' => $currentPlayer?->name,
                 'round_number' => $game->round_number,
@@ -99,22 +101,52 @@ class GameController extends Controller
             $validated['player_slots'][0]['user_id'] = $me->id;
         }
 
+        $openHumanCount = 0;
+        $invitedHumanCount = 0;
         foreach ($validated['player_slots'] as $slot) {
-            if ($slot['type'] === 'human' && ! $this->isAcceptedFriend($me->id, $slot['user_id'])) {
+            if (($slot['type'] ?? null) !== 'human') {
+                continue;
+            }
+            $slotUserId = $slot['user_id'] ?? null;
+            if ($slotUserId == $me->id) {
+                continue;
+            }
+            if ($slotUserId === null) {
+                $openHumanCount++;
+            } else {
+                $invitedHumanCount++;
+            }
+        }
+
+        if ($openHumanCount > 0 && $invitedHumanCount > 0) {
+            return response()->json(['message' => 'Cannot mix invited friends and open seats'], 422);
+        }
+
+        $isOpenLobby = $openHumanCount > 0;
+
+        foreach ($validated['player_slots'] as $slot) {
+            if ($slot['type'] !== 'human') {
+                continue;
+            }
+            $slotUserId = $slot['user_id'] ?? null;
+            if ($slotUserId === null) {
+                continue;
+            }
+            if (! $this->isAcceptedFriend($me->id, $slotUserId)) {
                 return response()->json(['message' => 'All human players must be accepted friends'], 422);
             }
         }
 
-        $clientStateJson = $validated['state_json'] ?? null;
+        $clientStateJson = $isOpenLobby ? null : ($validated['state_json'] ?? null);
 
         try {
-            $result = DB::transaction(function () use ($validated, $me, $clientStateJson) {
+            $result = DB::transaction(function () use ($validated, $me, $clientStateJson, $isOpenLobby) {
                 $game = Game::create([
                     'name' => $validated['name'],
                     'status' => 'waiting_for_players',
                     'map_config_json' => json_encode($validated['map_config']),
-                    // Store client-provided state immediately so startGame() can use it
-                    // without running the engine script.
+                    // Invite games store client-generated state so startGame() can skip
+                    // the engine script. Open lobbies stay empty until the roster fills.
                     'state_json' => $clientStateJson,
                     'created_by_user_id' => $me->id,
                     'current_user_id' => null,
@@ -135,19 +167,22 @@ class GameController extends Controller
                             'is_ai' => true,
                         ]);
                     } else {
+                        $slotUserId = $slot['user_id'] ?? null;
                         $players[] = GamePlayer::create([
                             'game_id' => $game->id,
-                            'user_id' => $slot['user_id'],
-                            'name' => $slot['name'],
+                            'user_id' => $slotUserId,
+                            'name' => $slotUserId === null
+                                ? (filled($slot['name'] ?? null) && ($slot['name'] !== 'Open') ? $slot['name'] : 'Open')
+                                : $slot['name'],
                             'turn_order' => $turnOrder,
                             'is_ai' => false,
                         ]);
 
-                        if ($slot['user_id'] != $me->id) {
+                        if ($slotUserId !== null && $slotUserId != $me->id) {
                             $invites[] = GameInvite::create([
                                 'game_id' => $game->id,
                                 'inviter_id' => $me->id,
-                                'invitee_id' => $slot['user_id'],
+                                'invitee_id' => $slotUserId,
                                 'player_slot_index' => $turnOrder,
                                 'status' => 'pending',
                             ]);
@@ -155,8 +190,10 @@ class GameController extends Controller
                     }
                 }
 
-                $this->gameService->startGame($game);
-                $game->refresh();
+                if (! $isOpenLobby) {
+                    $this->gameService->startGame($game);
+                    $game->refresh();
+                }
 
                 return compact('game', 'players', 'invites');
             });
@@ -198,6 +235,8 @@ class GameController extends Controller
                 'is_my_turn' => $isMyTurn,
                 'has_in_progress_actions' => false,
                 'winner_user_id' => $game->winner_user_id,
+                'is_open_lobby' => $isOpenLobby,
+                'map_config' => $this->decodeMapConfig($game),
                 'players' => collect($result['players'])->map(fn (GamePlayer $player) => $this->serializePlayer($player))->values(),
                 'current_player_name' => $currentPlayer?->name,
                 'round_number' => $game->round_number,
@@ -302,6 +341,8 @@ class GameController extends Controller
             }
         }
 
+        $game->load('players');
+
         return response()->json([
             'game' => [
                 'id' => $game->id,
@@ -311,7 +352,9 @@ class GameController extends Controller
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
                 'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $myPlayer->last_read_message_id),
-                'players' => $game->players()->orderBy('turn_order')->get()->map(fn (GamePlayer $player) => $this->serializePlayer($player))->values(),
+                'is_open_lobby' => $this->isMatchmakingLobby($game),
+                'map_config' => $this->decodeMapConfig($game),
+                'players' => $game->players->sortBy('turn_order')->values()->map(fn (GamePlayer $player) => $this->serializePlayer($player))->values(),
             ],
             'state_json' => $game->state_json,
             'is_my_turn' => $isMyTurn,
@@ -358,9 +401,230 @@ class GameController extends Controller
             return response()->json(['message' => 'Only the creator can delete this game'], 403);
         }
 
+        $game->load(['players.user']);
+        $wasWaitingLobby = $this->isMatchmakingLobby($game);
+        $gameName = $game->name;
+        $otherHumans = $game->players
+            ->filter(fn (GamePlayer $p) => ! $p->is_ai && $p->user_id !== null && $p->user_id != $me->id);
+
         $game->delete();
 
+        if ($wasWaitingLobby) {
+            foreach ($otherHumans as $other) {
+                if ($other->user === null) {
+                    continue;
+                }
+                $this->notificationService->sendPushNotification(
+                    $other->user,
+                    $gameName,
+                    'The lobby was cancelled.',
+                    ['event' => 'game_cancelled']
+                );
+            }
+        }
+
         return response()->json(['message' => 'Game deleted']);
+    }
+
+    public function openIndex(Request $request): JsonResponse
+    {
+        $me = $request->user();
+
+        $games = Game::with(['players', 'createdBy'])
+            ->where('status', 'waiting_for_players')
+            ->where(function ($query) {
+                $query->whereNull('state_json')->orWhere('state_json', '');
+            })
+            ->whereHas('players', function ($query) {
+                $query->where('is_ai', false)->whereNull('user_id');
+            })
+            ->whereDoesntHave('players', function ($query) use ($me) {
+                $query->where('user_id', $me->id);
+            })
+            ->orderByDesc('created_at')
+            ->get();
+
+        $payload = $games->map(fn (Game $game) => $this->serializeOpenLobby($game))->values();
+
+        return response()->json([
+            'games' => $payload,
+            'count' => $payload->count(),
+        ]);
+    }
+
+    public function join(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+        $shouldStart = false;
+
+        $locked = DB::transaction(function () use ($game, $me, &$shouldStart) {
+                $locked = Game::where('id', $game->id)->lockForUpdate()->first();
+                if ($locked === null) {
+                    $this->abortJson(404, 'Not found');
+                }
+                $locked->load(['players', 'createdBy']);
+
+                if ($locked->status !== 'waiting_for_players' || ! blank($locked->state_json)) {
+                    $this->abortJson(422, 'This game is not open for joining');
+                }
+
+                if ($locked->players->contains(fn (GamePlayer $p) => $p->user_id == $me->id)) {
+                    $this->abortJson(422, 'You are already in this game');
+                }
+
+                $openSeat = $locked->players
+                    ->filter(fn (GamePlayer $p) => ! $p->is_ai && $p->user_id === null)
+                    ->sortBy('turn_order')
+                    ->first();
+
+                if ($openSeat === null) {
+                    $this->abortJson(409, 'Game is full');
+                }
+
+                $openSeat->update([
+                    'user_id' => $me->id,
+                    'name' => $me->username,
+                ]);
+
+                $locked->load(['players', 'createdBy']);
+                $shouldStart = ! $locked->players->contains(
+                    fn (GamePlayer $p) => ! $p->is_ai && $p->user_id === null
+                );
+
+                return $locked;
+            });
+
+        $locked->load(['players', 'createdBy']);
+
+        return response()->json([
+            'joined' => true,
+            'should_start' => $shouldStart,
+            'game' => $this->serializeOpenLobby($locked),
+        ]);
+    }
+
+    public function leave(Request $request, Game $game): JsonResponse
+    {
+        $me = $request->user();
+
+        $locked = DB::transaction(function () use ($game, $me) {
+            $locked = Game::where('id', $game->id)->lockForUpdate()->first();
+                if ($locked === null) {
+                    $this->abortJson(404, 'Not found');
+                }
+                $locked->load('players');
+
+                if ($locked->created_by_user_id == $me->id) {
+                    $this->abortJson(422, 'The creator cannot leave — delete the game instead');
+                }
+
+                if ($locked->status !== 'waiting_for_players' || ! blank($locked->state_json)) {
+                    $this->abortJson(422, 'You can only leave a waiting lobby');
+                }
+
+                $player = $locked->players->firstWhere('user_id', $me->id);
+                if ($player === null) {
+                    $this->abortJson(403, 'Forbidden');
+                }
+
+            $player->update([
+                'user_id' => null,
+                'name' => 'Open',
+            ]);
+
+            return $locked;
+        });
+
+        $locked->load(['players', 'createdBy']);
+
+        return response()->json([
+            'left' => true,
+            'game' => $this->serializeOpenLobby($locked),
+        ]);
+    }
+
+    public function startLobby(Request $request, Game $game): JsonResponse
+    {
+        $validated = $request->validate([
+            'state_json' => ['required', 'string'],
+        ]);
+
+        $me = $request->user();
+
+        $member = GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->first();
+        if ($member === null) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $startedNow = false;
+
+        try {
+            DB::transaction(function () use ($game, $validated, &$startedNow) {
+                $locked = Game::where('id', $game->id)->lockForUpdate()->first();
+                if ($locked === null) {
+                    $this->abortJson(404, 'Not found');
+                }
+                $locked->load('players');
+
+                if ($locked->status === 'in_progress' && ! blank($locked->state_json)) {
+                    return;
+                }
+
+                if ($locked->status !== 'waiting_for_players') {
+                    $this->abortJson(422, 'Game cannot be started');
+                }
+
+                $openSeat = $locked->players->first(
+                    fn (GamePlayer $p) => ! $p->is_ai && $p->user_id === null
+                );
+                if ($openSeat !== null) {
+                    $this->abortJson(422, 'Lobby is not full');
+                }
+
+                $humanCount = $locked->players->filter(fn (GamePlayer $p) => ! $p->is_ai)->count();
+                if ($humanCount < 2) {
+                    $this->abortJson(422, 'Not a matchmaking lobby');
+                }
+
+                $locked->state_json = $validated['state_json'];
+                $locked->save();
+                $this->gameService->startGame($locked);
+                $startedNow = true;
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => 'Game engine error: ' . $e->getMessage()], 500);
+        }
+
+        $game->refresh();
+        $game->load(['players.user']);
+
+        if ($startedNow) {
+            $this->notifyMatchmakingStarted($game);
+        }
+
+        $isMyTurn = $game->current_user_id === $me->id;
+
+        return response()->json([
+            'started' => true,
+            'game' => [
+                'id' => $game->id,
+                'name' => $game->name,
+                'status' => $game->status,
+                'play_mode' => 'async_multiplayer',
+                'alert_state' => $isMyTurn ? 'your_turn' : 'waiting',
+                'is_my_turn' => $isMyTurn,
+                'has_in_progress_actions' => false,
+                'winner_user_id' => $game->winner_user_id,
+                'is_open_lobby' => false,
+                'map_config' => $this->decodeMapConfig($game),
+                'players' => $game->players->sortBy('turn_order')->values()->map(fn (GamePlayer $p) => $this->serializePlayer($p))->values(),
+                'current_player_name' => $game->players->firstWhere('user_id', $game->current_user_id)?->name,
+                'round_number' => $game->round_number,
+                'turn_number' => $game->turn_number,
+                'created_at' => $game->created_at->toIso8601String(),
+            ],
+            'state_json' => $game->state_json,
+        ]);
     }
 
     public function forfeit(Request $request, Game $game): JsonResponse
@@ -499,6 +763,87 @@ class GameController extends Controller
             ->where('sender_user_id', '!=', $meId)
             ->when($lastReadId !== null, fn ($q) => $q->where('id', '>', $lastReadId))
             ->count();
+    }
+
+    private function isMatchmakingLobby(Game $game): bool
+    {
+        if ($game->status !== 'waiting_for_players') {
+            return false;
+        }
+
+        return blank($game->state_json);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeMapConfig(Game $game): array
+    {
+        $decoded = json_decode($game->map_config_json ?? '', true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeOpenLobby(Game $game): array
+    {
+        $humans = $game->players->filter(fn (GamePlayer $p) => ! $p->is_ai);
+        $host = $game->createdBy;
+
+        return [
+            'id' => $game->id,
+            'name' => $game->name,
+            'status' => $game->status,
+            'host' => $host === null ? null : [
+                'id' => $host->id,
+                'username' => $host->username,
+            ],
+            'map_config' => $this->decodeMapConfig($game),
+            'human_filled' => $humans->filter(fn (GamePlayer $p) => $p->user_id !== null)->count(),
+            'human_total' => $humans->count(),
+            'ai_count' => $game->players->filter(fn (GamePlayer $p) => $p->is_ai)->count(),
+            'is_open_lobby' => $this->isMatchmakingLobby($game),
+            'players' => $game->players
+                ->sortBy('turn_order')
+                ->values()
+                ->map(fn (GamePlayer $p) => $this->serializePlayer($p))
+                ->values(),
+            'created_at' => $game->created_at?->toIso8601String(),
+        ];
+    }
+
+    private function notifyMatchmakingStarted(Game $game): void
+    {
+        $firstUserId = $game->current_user_id;
+
+        foreach ($game->players as $player) {
+            if ($player->is_ai || $player->user === null) {
+                continue;
+            }
+
+            if ($player->user_id == $firstUserId) {
+                $this->notificationService->sendPushNotification(
+                    $player->user,
+                    'Game Started!',
+                    "'{$game->name}' has started — it's your first turn!",
+                    ['game_id' => $game->id, 'event' => 'game_started']
+                );
+            } else {
+                $this->notificationService->sendPushNotification(
+                    $player->user,
+                    $game->name,
+                    "'{$game->name}' has started. You'll be notified when it's your turn.",
+                    ['game_id' => $game->id, 'event' => 'game_started']
+                );
+            }
+        }
+    }
+
+    private function abortJson(int $status, string $message): never
+    {
+        abort(response()->json(['message' => $message], $status));
     }
 
     private function isAcceptedFriend(int $creatorId, int $userId): bool

@@ -67,7 +67,17 @@ Use Laravel Form Requests for all validation. This keeps controllers thin and ma
 | `player_slots.*.difficulty` | required_if:type,ai \| in:easy,normal,hard |
 
 **Additional checks (in service):**
-- All non-creator human `user_id` values must be accepted friends of the creator → `422` if any are not
+- Invited human `user_id` values must be accepted friends of the creator → `422` if any are not
+- Open human seats (`user_id` null after slot 0) skip the friend check and skip `startGame`
+- Mixing invited friend IDs and open seats in one request → `422`
+
+### `POST /api/games/{id}/start`
+
+| Field | Rules |
+|-------|-------|
+| `state_json` | required \| string |
+
+Lobby must be `waiting_for_players`, every human seat filled, caller a member.
 
 ---
 

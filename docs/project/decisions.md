@@ -80,6 +80,8 @@ Decisions that shaped the backend design and the reasoning behind them.
 
 **Rationale:** Prevents spam invites from strangers. Keeps the social graph intentional.
 
+**2026-08-25:** Open-lobby matchmaking is a second fill model. Extra human seats with `user_id` null do not require friendship. Invite games still require accepted friends. One game cannot mix both models.
+
 ---
 
 ## 8. Invite Decline Cancels the Game

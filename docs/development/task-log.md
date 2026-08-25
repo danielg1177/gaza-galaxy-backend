@@ -1,5 +1,18 @@
 # Task Log
 
+## 2026-08-25 — Matchmaking open lobbies
+
+**Status:** Complete
+
+- `POST /games` allows extra human slots with `user_id` null (open seats). Mixing invited friends and open seats is 422. Open lobbies skip `startGame()` and store empty `state_json`.
+- `GET /games/open` lists waiting matchmaking lobbies the caller is not in (`count` + cards with 1/3 seats and map config). Never returns `state_json`.
+- `POST /games/{id}/join` claims the next empty human seat under a row lock. `should_start` is true when the roster is full.
+- `POST /games/{id}/leave` releases a waiting seat (creator must delete).
+- `POST /games/{id}/start` accepts client `state_json` once every human seat is filled; notifies the first player it is their turn and everyone else that the game started.
+- `GET /games` and `GET /games/{id}` include `is_open_lobby` and `map_config`. Friend-invite create path is unchanged.
+
+---
+
 ## 2026-08-25 — Account settings (username / password)
 
 **Status:** Complete

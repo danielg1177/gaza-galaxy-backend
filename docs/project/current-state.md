@@ -54,8 +54,12 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `GET /users/search?q=` — `{ users: [{ id, username, friendship_status }] }`
 
 **Games**
-- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, players, current_player_name, round_number, turn_number, created_at, unread_message_count }] }`
-- `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`)
+- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, unread_message_count }] }`
+- `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`). Extra human `user_id` null = open matchmaking seat; skip `startGame` until roster is full.
+- `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }`
+- `POST /games/{game}/join` — claim next empty human seat
+- `POST /games/{game}/leave` — release a waiting seat (not the creator)
+- `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
 - `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members get `is_my_turn: false` / `alert_state: waiting`.
 - `DELETE /games/{game}` — creator only, any status — 200 `{ message }`
 - `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
@@ -100,7 +104,7 @@ _None._
 
 ## Last Completed Task
 
-**Account settings** (2026-08-25) — `PATCH /api/auth/username` and `PATCH /api/auth/password` let a signed-in user change their login username or password. Username change does not rewrite in-game commander names. Wrong current password returns 422.
+**Matchmaking / open lobbies** (2026-08-25) — `POST /games` accepts open human seats (`user_id` null). `GET /games/open`, `POST /games/{id}/join`, `leave`, and `start` implement public matchmaking. Friend-invite create path is unchanged.
 
 ## Pending Tasks
 

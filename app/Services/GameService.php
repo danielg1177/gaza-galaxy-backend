@@ -12,7 +12,7 @@ class GameService
     {
         // If the client already provided a fully-generated state_json at creation
         // time, skip the engine script — just activate the game using that state.
-        if ($game->state_json !== null) {
+        if (! blank($game->state_json)) {
             $state = json_decode($game->state_json, true);
             if ($state === null) {
                 throw new \RuntimeException('Stored game state is invalid JSON');

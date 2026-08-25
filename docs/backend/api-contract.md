@@ -277,6 +277,10 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
 
 Each player object includes `is_forfeited`. For a sitting-out member, `is_my_turn` is `false` and `alert_state` is `waiting` even if `current_user_id` still points at them.
 
+`is_open_lobby` is `true` when `status` is `waiting_for_players` and `state_json` is empty (matchmaking lobby). Friend-invite games populate `state_json` at create, so they are not open lobbies. Command Center should hide open lobbies; they belong on Find Game → Pending.
+
+`map_config` is the decoded `map_config_json` object.
+
 ---
 
 ### `POST /api/games`
@@ -304,10 +308,16 @@ Auth required.
 
 `user_id: null` in the first human slot means the authenticated creator fills it. All other human `user_id` values must be accepted friends of the creator.
 
+**Open lobby (matchmaking):** extra human slots may omit `user_id` (or send `null`). Do not mix invited friend IDs and open seats in one request (`422`). Do not send `state_json` — the game stays `waiting_for_players` until `POST /games/{id}/start`. No `game_invites` rows are created for open seats.
+
+**Invite path:** every extra human has a friend `user_id`. Client sends `state_json`; `startGame()` runs immediately (existing creator-first behavior).
+
 **Response 201:**
 ```json
 { "game": { "id": 1, "name": "The Final War", "status": "in_progress" }, "state_json": "{...full GameState JSON string...}", "invites_sent": [5] }
 ```
+
+Open lobby 201 keeps `"status": "waiting_for_players"`, `"is_open_lobby": true`, and `"state_json": null`.
 
 ---
 
@@ -348,6 +358,88 @@ Auth required. User must be a member (`game_players`).
 `latest_events` is an array of `TurnEvent` objects from the most recently submitted turn for this game (the `turns` row with non-null `resulting_state_json`, highest `turn_number` then `round_number`). Empty array `[]` when no submitted turn exists or that turn has no stored events.
 
 `final_state_json` is the decoded `GameState` from the last submitted turn (`resulting_state_json` on the `turns` row with highest `turn_number` then `round_number`) when `game.status` is `finished`; `null` for in-progress or waiting games, or when no submitted turn exists.
+
+`game.is_open_lobby` and `game.map_config` are included so a member can start a full matchmaking lobby via `POST /games/{id}/start` if the last joiner dropped.
+
+---
+
+### `GET /api/games/open`
+Auth required. Public waiting matchmaking lobbies the caller is **not** already in. Never returns `state_json`.
+
+**Response 200:**
+```json
+{
+  "count": 1,
+  "games": [
+    {
+      "id": 12,
+      "name": "Dan's Campaign",
+      "status": "waiting_for_players",
+      "host": { "id": 1, "username": "commander_dan" },
+      "map_config": { "mapSize": "medium", "mapWidth": 286, "mapHeight": 286, "planetCount": 30, "seed": 1748556123456 },
+      "human_filled": 1,
+      "human_total": 3,
+      "ai_count": 1,
+      "is_open_lobby": true,
+      "players": [
+        { "in_game_name": "Dan", "is_ai": false, "user_id": 1 },
+        { "in_game_name": "Open", "is_ai": false, "user_id": null }
+      ],
+      "created_at": "2026-08-25T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+Seat counts include the creator. A fresh 3-human lobby is always `1/3`.
+
+---
+
+### `POST /api/games/{id}/join`
+Auth required. Claims the next empty human seat (`is_ai = false`, `user_id` null) on an open lobby. Friendship is not required. Row-locked to prevent double-fill.
+
+**Response 200:**
+```json
+{ "joined": true, "should_start": false, "game": { "...same shape as GET /games/open card..." } }
+```
+
+`should_start` is `true` when this join filled the last human seat. The client then generates `state_json` and calls `POST /games/{id}/start`.
+
+**Errors:**
+- `422` — not an open lobby, already a member, or game already started
+- `409` — game is full
+
+---
+
+### `POST /api/games/{id}/leave`
+Auth required. Releases your waiting matchmaking seat. Creator must delete instead.
+
+**Response 200:** `{ "left": true, "game": { "...open lobby card..." } }`
+
+**Errors:**
+- `403` — not a member
+- `422` — creator, or game already started
+
+---
+
+### `POST /api/games/{id}/start`
+Auth required. Member of a full matchmaking lobby (`waiting_for_players`, every human `user_id` filled, empty `state_json`).
+
+**Request:**
+```json
+{ "state_json": "{...full GameState JSON string...}" }
+```
+
+Runs `startGame()`. Notifies the first human (host) that it is their turn; notifies every other human that the game started. Idempotent if already `in_progress`.
+
+**Response 200:**
+```json
+{ "started": true, "game": { "...list-shaped game...", "is_my_turn": true }, "state_json": "{...}" }
+```
+
+**Errors:**
+- `403` — not a member
+- `422` — lobby not full, or game cannot be started
 
 ---
 
