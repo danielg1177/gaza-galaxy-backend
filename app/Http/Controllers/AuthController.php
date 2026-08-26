@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteAccountRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateUsernameRequest;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -92,5 +94,21 @@ class AuthController extends Controller
         $user->update(['password' => $request->password]);
 
         return response()->json(['message' => 'Password updated']);
+    }
+
+    public function destroy(DeleteAccountRequest $request, AccountDeletionService $accountDeletion): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect',
+                'errors' => ['current_password' => ['Current password is incorrect']],
+            ], 422);
+        }
+
+        $accountDeletion->delete($user);
+
+        return response()->json(['message' => 'Account deleted']);
     }
 }

@@ -25,7 +25,7 @@ class GameController extends Controller
         $me = $request->user();
 
         $gameIds = GamePlayer::where('user_id', $me->id)->pluck('game_id');
-        $games = Game::whereIn('id', $gameIds)->with('players')->get();
+        $games = Game::whereIn('id', $gameIds)->with(['players.user'])->get();
 
         $gamesPayload = $games->map(function (Game $game) use ($me) {
             $player = $game->players->firstWhere('user_id', $me->id);
@@ -65,6 +65,7 @@ class GameController extends Controller
                 'turn_number' => $game->turn_number,
                 'created_at' => $game->created_at->toIso8601String(),
                 'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $player?->last_read_message_id),
+                'blocked_players' => $this->serializeBlockedPlayers($game, $me),
             ];
         })->values();
 
@@ -430,7 +431,7 @@ class GameController extends Controller
     {
         $me = $request->user();
 
-        $games = Game::with(['players', 'createdBy'])
+        $games = Game::with(['players.user', 'createdBy'])
             ->where('status', 'waiting_for_players')
             ->where(function ($query) {
                 $query->whereNull('state_json')->orWhere('state_json', '');
@@ -444,7 +445,7 @@ class GameController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $payload = $games->map(fn (Game $game) => $this->serializeOpenLobby($game))->values();
+        $payload = $games->map(fn (Game $game) => $this->serializeOpenLobby($game, $me))->values();
 
         return response()->json([
             'games' => $payload,
@@ -494,12 +495,31 @@ class GameController extends Controller
                 return $locked;
             });
 
-        $locked->load(['players', 'createdBy']);
+        $locked->load(['players.user', 'createdBy']);
+
+        foreach ($locked->players as $otherPlayer) {
+            if (
+                $otherPlayer->is_ai
+                || $otherPlayer->user === null
+                || $otherPlayer->user_id == $me->id
+            ) {
+                continue;
+            }
+            if (! Friendship::isBlocked($me->id, (int) $otherPlayer->user_id)) {
+                continue;
+            }
+            $this->notificationService->sendPushNotification(
+                $otherPlayer->user,
+                $locked->name,
+                "A commander you've blocked joined this lobby. They cannot message you.",
+                ['game_id' => $locked->id, 'event' => 'blocked_player_joined']
+            );
+        }
 
         return response()->json([
             'joined' => true,
             'should_start' => $shouldStart,
-            'game' => $this->serializeOpenLobby($locked),
+            'game' => $this->serializeOpenLobby($locked, $me),
         ]);
     }
 
@@ -539,7 +559,7 @@ class GameController extends Controller
 
         return response()->json([
             'left' => true,
-            'game' => $this->serializeOpenLobby($locked),
+            'game' => $this->serializeOpenLobby($locked, $me),
         ]);
     }
 
@@ -759,8 +779,20 @@ class GameController extends Controller
 
     private function unreadMessageCount(int $gameId, int $meId, ?int $lastReadId): int
     {
+        $blockedIds = Friendship::blockedUserIds($meId);
+
         return \App\Models\GameMessage::where('game_id', $gameId)
-            ->where('sender_user_id', '!=', $meId)
+            ->whereNull('hidden_at')
+            ->where(function ($query) use ($meId) {
+                $query->whereNull('sender_user_id')
+                    ->orWhere('sender_user_id', '!=', $meId);
+            })
+            ->when(count($blockedIds) > 0, function ($query) use ($blockedIds) {
+                $query->where(function ($inner) use ($blockedIds) {
+                    $inner->whereNull('sender_user_id')
+                        ->orWhereNotIn('sender_user_id', $blockedIds);
+                });
+            })
             ->when($lastReadId !== null, fn ($q) => $q->where('id', '>', $lastReadId))
             ->count();
     }
@@ -787,7 +819,7 @@ class GameController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeOpenLobby(Game $game): array
+    private function serializeOpenLobby(Game $game, ?User $viewer = null): array
     {
         $humans = $game->players->filter(fn (GamePlayer $p) => ! $p->is_ai);
         $host = $game->createdBy;
@@ -810,8 +842,32 @@ class GameController extends Controller
                 ->values()
                 ->map(fn (GamePlayer $p) => $this->serializePlayer($p))
                 ->values(),
+            'blocked_players' => $viewer === null ? [] : $this->serializeBlockedPlayers($game, $viewer),
             'created_at' => $game->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return list<array{id: int, username: string, in_game_name: string}>
+     */
+    private function serializeBlockedPlayers(Game $game, User $viewer): array
+    {
+        $blocked = [];
+        foreach ($game->players as $player) {
+            if ($player->is_ai || $player->user_id === null || $player->user_id == $viewer->id) {
+                continue;
+            }
+            if (! Friendship::isBlocked($viewer->id, (int) $player->user_id)) {
+                continue;
+            }
+            $blocked[] = [
+                'id' => (int) $player->user_id,
+                'username' => $player->user?->username ?? $player->name,
+                'in_game_name' => $player->name,
+            ];
+        }
+
+        return $blocked;
     }
 
     private function notifyMatchmakingStarted(Game $game): void

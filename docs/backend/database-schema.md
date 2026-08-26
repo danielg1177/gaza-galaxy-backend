@@ -179,7 +179,7 @@ CREATE TABLE turns (
   updated_at TIMESTAMP NULL DEFAULT NULL,
   UNIQUE KEY unique_turn (game_id, user_id, turn_number, round_number),
   FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_game_turn (game_id, turn_number),
   INDEX idx_user_game (user_id, game_id)
 );
@@ -194,6 +194,7 @@ CREATE TABLE turns (
 | `submitted_at` | NULL while turn is in progress. Set on submit. |
 
 A row may be created on first mid-turn save and updated on submit. Use upsert logic.
+
 
 ### `submitted_actions_json` shape
 
@@ -216,3 +217,16 @@ A row may be created on first mid-turn save and updated on submit. Use upsert lo
   ]
 }
 ```
+
+---
+
+## 2026-08-26 — Account deletion and chat moderation
+
+Live FKs (migrations `2026_08_26_100000` / `100001`):
+
+- `games.created_by_user_id` is nullable, `ON DELETE SET NULL`
+- `turns.user_id` is nullable, `ON DELETE SET NULL`
+- `game_messages.sender_user_id` is nullable, `ON DELETE SET NULL` (no longer cascade-deletes chat)
+- `game_messages.hidden_at` TIMESTAMP NULL — hidden messages are omitted from GET / unread
+
+`message_reports` stores report evidence (content snapshot, reporter, reported user, status `open|actioned|dismissed`). Unique `(reporter_user_id, message_id)`.

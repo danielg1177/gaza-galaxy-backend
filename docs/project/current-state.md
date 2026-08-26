@@ -38,6 +38,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `GET /auth/me` — 200 `{ id, username }`
 - `PATCH /auth/username` — 200 `{ id, username }` — field: `username`
 - `PATCH /auth/password` — 200 `{ message }` — fields: `current_password`, `password`, `password_confirmation` (422 if current password is wrong)
+- `DELETE /auth/account` — 200 `{ message }` — field: `current_password` (422 if wrong); settles live games then deletes the user
 
 **Push token**
 - `POST /push-token` — 200 `{ saved: true }` — field: `token`
@@ -45,18 +46,21 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 **Friends**
 - `GET /friends` — `{ friends: [{ friendship_id, user }] }`
 - `GET /friends/requests` — `{ requests: [{ friendship_id, from_user, created_at }] }`
+- `GET /friends/blocked` — `{ blocked: [{ friendship_id, user }] }`
 - `POST /friends/request` — 201 `{ friendship_id, status }` — field: `username`
+- `POST /friends/block` — 200 `{ friendship_id, status }` — field: `user_id`
 - `POST /friends/requests/{friendship}/accept` — 200 `{ friendship_id, status }`
 - `POST /friends/requests/{friendship}/decline` — 200 `{ message }`
+- `DELETE /friends/blocked/{friendship}` — 200 `{ message }` — blocker only
 - `DELETE /friends/{friendship}` — 200 `{ message }`
 
 **Users**
 - `GET /users/search?q=` — `{ users: [{ id, username, friendship_status }] }`
 
 **Games**
-- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, unread_message_count }] }`
+- `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, unread_message_count, blocked_players }] }`
 - `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`). Extra human `user_id` null = open matchmaking seat; skip `startGame` until roster is full.
-- `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }`
+- `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }` — each card includes `blocked_players` (seated humans in a block with the caller)
 - `POST /games/{game}/join` — claim next empty human seat
 - `POST /games/{game}/leave` — release a waiting seat (not the creator)
 - `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
@@ -72,8 +76,9 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `POST /games/{game}/turn/abandon` — current player only — clears mid-turn save only
 
 **Messages**
-- `GET /games/{game}/messages` — members only — `{ messages: [{ id, senderUserId, senderName, content, createdAt }] }` — also marks all messages as read for the calling user
-- `POST /games/{game}/messages` — members only — field: `content` (string, max 500) — 201 `{ message: { id, senderUserId, senderName, content, createdAt } }` — sends push notification to all other human players
+- `GET /games/{game}/messages` — members only — `{ messages: [{ id, senderUserId, senderName, content, createdAt }] }` — also marks all messages as read for the calling user; omits hidden messages and blocked senders
+- `POST /games/{game}/messages` — members only — field: `content` (string, max 500) — 201 `{ message: { id, senderUserId, senderName, content, createdAt } }` — sends push notification to all other human players except blocked counterparts
+- `POST /games/{game}/messages/{message}/report` — members only — 201 `{ reported: true }` — stores `message_reports` and emails `MODERATION_EMAIL`
 
 **Invites**
 - `GET /invites` — pending invites where invitee = me
@@ -82,7 +87,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 
 ## Current Database Tables
 
-`users`, `friendships`, `games`, `game_players` (+ `is_forfeited`), `game_invites`, `turns`, `game_messages`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
+`users`, `friendships`, `games`, `game_players` (+ `is_forfeited`), `game_invites`, `turns`, `game_messages` (+ `hidden_at`), `message_reports`, `personal_access_tokens`, `cache`, `jobs`, `migrations`
 
 ## Current Game-Engine Status
 
@@ -104,7 +109,7 @@ _None._
 
 ## Last Completed Task
 
-**Matchmaking / open lobbies** (2026-08-25) — `POST /games` accepts open human seats (`user_id` null). `GET /games/open`, `POST /games/{id}/join`, `leave`, and `start` implement public matchmaking. Friend-invite create path is unchanged.
+**Account deletion, block, and chat report** (2026-08-26) — `DELETE /auth/account` with live-game forfeit/anonymize. Block is communication-only (search/requests/invites/chat); shared games allowed with a client confirm. `POST .../messages/{id}/report` plus `moderation:hide-message` / `moderation:delete-account`.
 
 ## Pending Tasks
 

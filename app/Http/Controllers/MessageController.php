@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Friendship;
 use App\Models\Game;
 use App\Models\GameMessage;
+use App\Models\MessageReport;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class MessageController extends Controller
 {
@@ -20,23 +24,20 @@ class MessageController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $blockedIds = Friendship::blockedUserIds($me->id);
+
         $messages = $game->messages()
             ->with('sender')
+            ->whereNull('hidden_at')
+            ->when(count($blockedIds) > 0, function ($query) use ($blockedIds) {
+                $query->where(function ($inner) use ($blockedIds) {
+                    $inner->whereNull('sender_user_id')
+                        ->orWhereNotIn('sender_user_id', $blockedIds);
+                });
+            })
             ->orderBy('id')
             ->get()
-            ->map(function (GameMessage $m) use ($game) {
-                $senderName = $game->players()
-                    ->where('user_id', $m->sender_user_id)
-                    ->value('name') ?? $m->sender->username;
-
-                return [
-                    'id'           => $m->id,
-                    'senderUserId' => $m->sender_user_id,
-                    'senderName'   => $senderName,
-                    'content'      => $m->content,
-                    'createdAt'    => $m->created_at->toIso8601String(),
-                ];
-            });
+            ->map(fn (GameMessage $message) => $this->serializeMessage($game, $message));
 
         if ($messages->isNotEmpty()) {
             $player->update(['last_read_message_id' => $messages->last()['id']]);
@@ -51,6 +52,16 @@ class MessageController extends Controller
         $player = $game->players()->where('user_id', $me->id)->first();
         if (!$player) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $otherHumanIds = $game->players()
+            ->where('is_ai', false)
+            ->whereNotNull('user_id')
+            ->where('user_id', '!=', $me->id)
+            ->pluck('user_id');
+
+        if ($otherHumanIds->isNotEmpty() && $otherHumanIds->every(fn ($id) => Friendship::isBlocked($me->id, (int) $id))) {
+            return response()->json(['message' => 'You cannot message this game'], 422);
         }
 
         $validated = $request->validate([
@@ -75,22 +86,123 @@ class MessageController extends Controller
             ->whereNotNull('user_id')
             ->with('user')
             ->get()
-            ->each(function ($otherPlayer) use ($game, $senderName, $truncated) {
-                if ($otherPlayer->user) {
-                    $this->notificationService->sendPushNotification(
-                        $otherPlayer->user,
-                        $game->name,
-                        "{$senderName}: {$truncated}"
-                    );
+            ->each(function ($otherPlayer) use ($game, $senderName, $truncated, $me) {
+                if ($otherPlayer->user === null) {
+                    return;
                 }
+                if (Friendship::isBlocked($me->id, (int) $otherPlayer->user_id)) {
+                    return;
+                }
+                $this->notificationService->sendPushNotification(
+                    $otherPlayer->user,
+                    $game->name,
+                    "{$senderName}: {$truncated}"
+                );
             });
 
-        return response()->json(['message' => [
-            'id'           => $msg->id,
-            'senderUserId' => $msg->sender_user_id,
+        return response()->json(['message' => $this->serializeMessage($game, $msg)], 201);
+    }
+
+    public function report(Request $request, Game $game, GameMessage $message): JsonResponse
+    {
+        $me = $request->user();
+        $player = $game->players()->where('user_id', $me->id)->first();
+        if (!$player) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($message->game_id !== $game->id) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        if ($message->sender_user_id == $me->id) {
+            return response()->json(['message' => 'Cannot report your own message'], 422);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $existing = MessageReport::where('reporter_user_id', $me->id)
+            ->where('message_id', $message->id)
+            ->first();
+        if ($existing !== null) {
+            return response()->json(['reported' => true]);
+        }
+
+        $message->load('sender');
+        $report = MessageReport::create([
+            'game_id' => $game->id,
+            'message_id' => $message->id,
+            'reporter_user_id' => $me->id,
+            'reported_user_id' => $message->sender_user_id,
+            'content_snapshot' => $message->content,
+            'sender_username_snapshot' => $message->sender?->username,
+            'game_name_snapshot' => $game->name,
+            'reason' => $validated['reason'] ?? null,
+            'status' => 'open',
+        ]);
+
+        $this->mailReport($report, $me->username);
+
+        return response()->json(['reported' => true], 201);
+    }
+
+    /**
+     * @return array{id: int, senderUserId: int|null, senderName: string, content: string, createdAt: string}
+     */
+    private function serializeMessage(Game $game, GameMessage $message): array
+    {
+        if ($message->sender_user_id === null) {
+            $senderName = 'Former Commander';
+        } else {
+            $senderName = $game->players()
+                ->where('user_id', $message->sender_user_id)
+                ->value('name')
+                ?? $message->sender?->username
+                ?? 'Former Commander';
+        }
+
+        return [
+            'id'           => $message->id,
+            'senderUserId' => $message->sender_user_id,
             'senderName'   => $senderName,
-            'content'      => $msg->content,
-            'createdAt'    => $msg->created_at->toIso8601String(),
-        ]], 201);
+            'content'      => $message->content,
+            'createdAt'    => $message->created_at->toIso8601String(),
+        ];
+    }
+
+    private function mailReport(MessageReport $report, string $reporterUsername): void
+    {
+        $to = config('mail.moderation_address');
+        if (! is_string($to) || $to === '') {
+            return;
+        }
+
+        $body = implode("\n", [
+            'A chat message was reported in Gaza Galaxy.',
+            '',
+            'Report ID: '.$report->id,
+            'Game ID: '.$report->game_id.' ('.$report->game_name_snapshot.')',
+            'Message ID: '.$report->message_id,
+            'Reporter: '.$reporterUsername.' (user '.$report->reporter_user_id.')',
+            'Sender: '.($report->sender_username_snapshot ?? 'unknown').' (user '.$report->reported_user_id.')',
+            'Reason: '.($report->reason ?: '(none)'),
+            '',
+            'Message:',
+            $report->content_snapshot,
+            '',
+            'Act within about a day:',
+            '  php artisan moderation:hide-message '.$report->message_id,
+            '  php artisan moderation:delete-account '.$report->reported_user_id.' --force',
+        ]);
+
+        try {
+            Mail::raw($body, function ($message) use ($to, $report) {
+                $message->to($to)->subject('Gaza Galaxy message report #'.$report->id);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('[Moderation] Report mail failed: '.$e->getMessage());
+        }
     }
 }

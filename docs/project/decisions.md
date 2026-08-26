@@ -105,3 +105,20 @@ Decisions that shaped the backend design and the reasoning behind them.
 **Decision:** The Node.js CLI is used only for `startGame()` (initial map generation). It is not called on every turn.
 
 **Rationale:** Map generation is deterministic and only needs to happen once per game. Calling Node.js on every turn would be a significant performance and reliability concern.
+
+---
+
+## 11. Account deletion does not run the game engine
+
+**Decision:** On `DELETE /auth/account`, in-progress slots are permanently forfeited and anonymized. If it is that user's turn, `current_user_id` advances to the next playing human without resolving the skipped action phase. If no playing human remains, the game is finished with no winner. Chat messages SET NULL the sender rather than cascade-delete.
+
+**Rationale:** The backend does not re-run TypeScript turns. Leaving `current_user_id` on a deleted user would stall the match. Deleting games would punish remaining commanders.
+
+---
+
+## 12. Block is communication-only
+
+**Decision:** `friendships.status = blocked` hides search, friend requests, game invites, and chat (including pushes). It does not prevent sharing an in-progress or open-lobby game. Open lobby cards include `blocked_players` so the client can confirm before join.
+
+**Rationale:** Apple 1.2 requires stopping UGC contact, not forbidding gameplay. Confirmed joins keep chat filtered.
+

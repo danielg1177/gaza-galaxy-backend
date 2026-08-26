@@ -122,6 +122,30 @@ Wrong current password is 422, not 401. Current Sanctum token stays valid.
 
 ---
 
+### `DELETE /api/auth/account`
+Auth required.
+
+**Request:**
+```json
+{ "current_password": "string" }
+```
+
+**Validation:** `current_password` required.
+
+**Logic:** Verify password (422 if wrong). Permanently leave live games (forfeit + anonymize commander as "Former Commander"; skip the action phase if it is their turn; finish the match if they are the last playing human). Cancel waiting lobbies they host. Release open-lobby seats they joined. Decline pending invites they received (cancels those games). Transfer `created_by_user_id` to the next remaining human. Revoke all Sanctum tokens. Delete the user row.
+
+**Response 200:**
+```json
+{ "message": "Account deleted" }
+```
+
+**Response 422:**
+```json
+{ "message": "Current password is incorrect", "errors": { "current_password": ["Current password is incorrect"] } }
+```
+
+---
+
 ## Push Token
 
 ### `POST /api/push-token`
@@ -213,11 +237,52 @@ Auth required. Must be the addressee of the pending request.
 ---
 
 ### `DELETE /api/friends/{friendship_id}`
-Auth required. Must be either party in the friendship.
+Auth required. Must be either party in the friendship. Cannot be used to remove a `blocked` row.
 
 **Response 200:**
 ```json
 { "message": "Friend removed" }
+```
+
+---
+
+### `GET /api/friends/blocked`
+Auth required. Users the caller blocked (`requester_id = me`, `status = blocked`).
+
+**Response 200:**
+```json
+{
+  "blocked": [
+    { "friendship_id": 9, "user": { "id": 4, "username": "warlord99" } }
+  ]
+}
+```
+
+---
+
+### `POST /api/friends/block`
+Auth required.
+
+**Request:**
+```json
+{ "user_id": 4 }
+```
+
+**Logic:** Delete pending/accepted rows between the pair. Insert `(me, user_id, blocked)`. Does not delete a block the other user already placed. Cancels pending game invites either direction (same as decline: waiting friend-invite games finish). Shared in-progress games continue. Chat between the pair is hidden.
+
+**Response 200:**
+```json
+{ "friendship_id": 9, "status": "blocked" }
+```
+
+---
+
+### `DELETE /api/friends/blocked/{friendship_id}`
+Auth required. Must be the blocker (`requester_id = me`, `status = blocked`).
+
+**Response 200:**
+```json
+{ "message": "Unblocked" }
 ```
 
 ---
@@ -238,6 +303,8 @@ Auth required. Min 1 char. Returns up to 20 users.
 ```
 
 `friendship_status` values: `none` | `pending_sent` | `pending_received` | `accepted`
+
+Blocked users (either direction) are omitted from results. A friend request to a blocked user returns `404`.
 
 ---
 
@@ -632,3 +699,45 @@ Declining cancels the entire game — `games.status` is set to `finished` and th
 ```json
 { "declined": true }
 ```
+
+---
+
+## Messages
+
+### `GET /api/games/{id}/messages`
+Auth required. Members only. Omits `hidden_at` messages and messages from users in a block with the caller. Marks the caller's last-read id.
+
+**Response 200:**
+```json
+{
+  "messages": [
+    { "id": 1, "senderUserId": 5, "senderName": "Nova", "content": "gg", "createdAt": "2026-08-26T12:00:00.000Z" }
+  ]
+}
+```
+
+`senderUserId` is `null` when the sender's account was deleted (`senderName` is then `"Former Commander"`).
+
+---
+
+### `POST /api/games/{id}/messages`
+Auth required. Members only. `content` max 500. `422` if every other remaining human is in a block with the sender. Push is not sent to blocked counterparts.
+
+---
+
+### `POST /api/games/{id}/messages/{message}/report`
+Auth required. Members only. Cannot report your own message.
+
+**Request (optional):**
+```json
+{ "reason": "string" }
+```
+
+Stores a `message_reports` row (content snapshot) and emails `MODERATION_EMAIL`. Duplicate reports return `200 { "reported": true }` without a second email.
+
+**Response 201:**
+```json
+{ "reported": true }
+```
+
+Moderation commands: `php artisan moderation:hide-message {id}` and `php artisan moderation:delete-account {id} --force`.

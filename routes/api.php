@@ -16,6 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/username', [AuthController::class, 'updateUsername']);
     Route::patch('/auth/password', [AuthController::class, 'updatePassword']);
+    Route::delete('/auth/account', [AuthController::class, 'destroy']);
 
     Route::post('/push-token', [PushTokenController::class, 'update']);
     Route::post('/push-subscription', [PushTokenController::class, 'storeSubscription']);
@@ -23,9 +24,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/friends', [FriendController::class, 'index']);
     Route::get('/friends/requests', [FriendController::class, 'requests']);
+    Route::get('/friends/blocked', [FriendController::class, 'blocked']);
     Route::post('/friends/request', [FriendController::class, 'request']);
+    Route::post('/friends/block', [FriendController::class, 'block']);
     Route::post('/friends/requests/{friendship}/accept', [FriendController::class, 'accept']);
     Route::post('/friends/requests/{friendship}/decline', [FriendController::class, 'decline']);
+    Route::delete('/friends/blocked/{friendship}', [FriendController::class, 'unblock']);
     Route::delete('/friends/{friendship}', [FriendController::class, 'destroy']);
     Route::get('/users/search', [FriendController::class, 'search']);
 
@@ -46,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/games/{game}/turn/abandon', [TurnController::class, 'abandon']);
     Route::get('/games/{game}/messages', [\App\Http\Controllers\MessageController::class, 'index']);
     Route::post('/games/{game}/messages', [\App\Http\Controllers\MessageController::class, 'store']);
+    Route::post('/games/{game}/messages/{message}/report', [\App\Http\Controllers\MessageController::class, 'report']);
 
     Route::get('/invites', [InviteController::class, 'index']);
     Route::post('/invites/{invite}/accept', [InviteController::class, 'accept']);

@@ -1,5 +1,18 @@
 # Task Log
 
+## 2026-08-26 — Account deletion, block, and chat report
+
+**Status:** Complete
+
+- FK migration: `games.created_by_user_id`, `turns.user_id`, `game_messages.sender_user_id` are nullable `ON DELETE SET NULL`
+- `DELETE /api/auth/account` via `AccountDeletionService` (password required, 422 if wrong)
+- Block: `POST /friends/block`, `GET /friends/blocked`, `DELETE /friends/blocked/{id}` — communication only; gameplay allowed
+- Chat GET/store/push/unread hide blocked senders and `hidden_at` messages
+- `POST /games/{game}/messages/{message}/report` + `message_reports` + mail to `MODERATION_EMAIL`
+- Artisan: `moderation:hide-message`, `moderation:delete-account {id} --force`
+
+---
+
 ## 2026-08-25 — Matchmaking open lobbies
 
 **Status:** Complete

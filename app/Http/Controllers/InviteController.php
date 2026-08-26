@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Friendship;
 use App\Models\Game;
 use App\Models\GameInvite;
 use App\Models\GamePlayer;
@@ -18,9 +19,11 @@ class InviteController extends Controller
     public function index(Request $request): JsonResponse
     {
         $me = $request->user();
+        $blockedIds = Friendship::blockedUserIds($me->id);
 
         $invites = GameInvite::where('invitee_id', $me->id)
             ->where('status', 'pending')
+            ->when(count($blockedIds) > 0, fn ($query) => $query->whereNotIn('inviter_id', $blockedIds))
             ->with(['game', 'inviter'])
             ->get();
 
@@ -52,6 +55,10 @@ class InviteController extends Controller
         }
 
         if ($invite->status !== 'pending') {
+            return response()->json(['message' => 'Invite is not pending'], 422);
+        }
+
+        if (Friendship::isBlocked($me->id, (int) $invite->inviter_id)) {
             return response()->json(['message' => 'Invite is not pending'], 422);
         }
 

@@ -78,13 +78,31 @@ There is still no email-based password reset. This endpoint is for a signed-in u
 
 ---
 
+## Account Deletion
+
+`DELETE /api/auth/account` — auth required.
+
+**Validation:**
+- `current_password`: required | string
+
+**Logic:**
+1. `Hash::check` current password — **422** if false (not 401).
+2. `AccountDeletionService` settles live games, then deletes the user.
+3. Waiting games they hosted are deleted. Open-lobby seats they joined are released. Pending invites they received are declined (cancels those games).
+4. In-progress: permanent forfeit, commander name becomes `Former Commander`, creator transfers to the next remaining human. If it is their turn, `current_user_id` moves to the next playing human (action phase skipped). If they are the last playing human, the match finishes with no winner.
+5. All Sanctum tokens are revoked. Push fields are cleared.
+
+Local pass-and-play campaigns on the device are not server data and are not wiped.
+
+---
+
 ## Token Lifecycle
 
 | Rule | Detail |
 |------|--------|
 | Expiration | Never. `'expiration' => null` in `config/sanctum.php`. |
 | Storage | Client stores in AsyncStorage; used indefinitely. |
-| Invalidation | Explicit logout only, or when a new login replaces all prior tokens. |
+| Invalidation | Explicit logout, account deletion, or when a new login replaces all prior tokens. |
 | Format | `{id}|{token}` — sent as `Authorization: Bearer {token}` header. |
 
 ---
