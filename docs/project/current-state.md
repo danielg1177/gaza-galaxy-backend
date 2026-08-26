@@ -1,6 +1,6 @@
 # Current State
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-26_
 
 ---
 
@@ -60,7 +60,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 **Games**
 - `GET /games` — `{ games: [{ id, name, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, unread_message_count, blocked_players }] }`
 - `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`). Extra human `user_id` null = open matchmaking seat; skip `startGame` until roster is full.
-- `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }` — each card includes `blocked_players` (seated humans in a block with the caller)
+- `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }` — each card includes `blocked_players` (seated humans the caller blocked)
 - `POST /games/{game}/join` — claim next empty human seat
 - `POST /games/{game}/leave` — release a waiting seat (not the creator)
 - `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
@@ -76,8 +76,8 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `POST /games/{game}/turn/abandon` — current player only — clears mid-turn save only
 
 **Messages**
-- `GET /games/{game}/messages` — members only — `{ messages: [{ id, senderUserId, senderName, content, createdAt }] }` — also marks all messages as read for the calling user; omits hidden messages and blocked senders
-- `POST /games/{game}/messages` — members only — field: `content` (string, max 500) — 201 `{ message: { id, senderUserId, senderName, content, createdAt } }` — sends push notification to all other human players except blocked counterparts
+- `GET /games/{game}/messages` — members only — `{ messages: [...], can_send, cannot_send_reason }` — also marks all messages as read for the calling user; omits hidden messages and blocked senders; `can_send` is false when every other remaining human is blocked
+- `POST /games/{game}/messages` — members only — field: `content` (string, max 500) — 201 `{ message: { id, senderUserId, senderName, content, createdAt } }` — 422 with `cannot_send_reason` copy when messaging is blocked; sends push notification to all other human players except blocked counterparts
 - `POST /games/{game}/messages/{message}/report` — members only — 201 `{ reported: true }` — stores `message_reports` and emails `MODERATION_EMAIL`
 
 **Invites**
@@ -108,6 +108,10 @@ _None._
 **Fix: Task 161** — advance `games.turn_number` to `$request->resulting_state['turnNumber']` instead of `+1`. See `docs/development/known-issues.md` for full details.
 
 ## Last Completed Task
+
+**Chat blocked-send UI** (2026-08-26) — `GET /games/{game}/messages` includes `can_send` / `cannot_send_reason`. ConversationModal shows that reason instead of the composer. `POST` 422 uses the same copy.
+
+**Player terminology** (2026-08-26) — User-facing copy, default names, and deleted-account labels say player / `Player` / `Former Player`. Push and chat strings updated. Persisted `commanderStatusNotices` key unchanged.
 
 **Account deletion, block, and chat report** (2026-08-26) — `DELETE /auth/account` with live-game forfeit/anonymize. Block is communication-only (search/requests/invites/chat); shared games allowed with a client confirm. `POST .../messages/{id}/report` plus `moderation:hide-message` / `moderation:delete-account`.
 

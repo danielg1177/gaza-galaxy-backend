@@ -112,7 +112,7 @@ Decisions that shaped the backend design and the reasoning behind them.
 
 **Decision:** On `DELETE /auth/account`, in-progress slots are permanently forfeited and anonymized. If it is that user's turn, `current_user_id` advances to the next playing human without resolving the skipped action phase. If no playing human remains, the game is finished with no winner. Chat messages SET NULL the sender rather than cascade-delete.
 
-**Rationale:** The backend does not re-run TypeScript turns. Leaving `current_user_id` on a deleted user would stall the match. Deleting games would punish remaining commanders.
+**Rationale:** The backend does not re-run TypeScript turns. Leaving `current_user_id` on a deleted user would stall the match. Deleting games would punish remaining players.
 
 ---
 
@@ -121,4 +121,12 @@ Decisions that shaped the backend design and the reasoning behind them.
 **Decision:** `friendships.status = blocked` hides search, friend requests, game invites, and chat (including pushes). It does not prevent sharing an in-progress or open-lobby game. Open lobby cards include `blocked_players` so the client can confirm before join.
 
 **Rationale:** Apple 1.2 requires stopping UGC contact, not forbidding gameplay. Confirmed joins keep chat filtered.
+
+---
+
+## 13. Players are called players, not commanders
+
+**Decision:** User-facing copy, default names, and docs refer to match participants as players. Deleted accounts anonymize as `Former Player`. The persisted `state_json` key `commanderStatusNotices` is unchanged so existing campaigns still load.
+
+**Rationale:** The engine and API already model `Player` / `game_players`. Commander was leftover product language.
 

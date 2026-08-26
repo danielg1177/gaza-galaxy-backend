@@ -43,7 +43,13 @@ class MessageController extends Controller
             $player->update(['last_read_message_id' => $messages->last()['id']]);
         }
 
-        return response()->json(['messages' => $messages]);
+        $blockedReason = $this->messagingBlockedReason($game, $me->id);
+
+        return response()->json([
+            'messages' => $messages,
+            'can_send' => $blockedReason === null,
+            'cannot_send_reason' => $blockedReason,
+        ]);
     }
 
     public function store(Request $request, Game $game): JsonResponse
@@ -54,14 +60,9 @@ class MessageController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $otherHumanIds = $game->players()
-            ->where('is_ai', false)
-            ->whereNotNull('user_id')
-            ->where('user_id', '!=', $me->id)
-            ->pluck('user_id');
-
-        if ($otherHumanIds->isNotEmpty() && $otherHumanIds->every(fn ($id) => Friendship::isBlocked($me->id, (int) $id))) {
-            return response()->json(['message' => 'You cannot message this game'], 422);
+        $blockedReason = $this->messagingBlockedReason($game, $me->id);
+        if ($blockedReason !== null) {
+            return response()->json(['message' => $blockedReason], 422);
         }
 
         $validated = $request->validate([
@@ -148,19 +149,38 @@ class MessageController extends Controller
         return response()->json(['reported' => true], 201);
     }
 
+    private function messagingBlockedReason(Game $game, int $meId): ?string
+    {
+        $otherHumanIds = $game->players()
+            ->where('is_ai', false)
+            ->whereNotNull('user_id')
+            ->where('user_id', '!=', $meId)
+            ->pluck('user_id');
+
+        if ($otherHumanIds->isEmpty()) {
+            return null;
+        }
+
+        if ($otherHumanIds->every(fn ($id) => Friendship::isBlocked($meId, (int) $id))) {
+            return 'You cannot send messages in this game. Communication with the other player is blocked.';
+        }
+
+        return null;
+    }
+
     /**
      * @return array{id: int, senderUserId: int|null, senderName: string, content: string, createdAt: string}
      */
     private function serializeMessage(Game $game, GameMessage $message): array
     {
         if ($message->sender_user_id === null) {
-            $senderName = 'Former Commander';
+            $senderName = 'Former Player';
         } else {
             $senderName = $game->players()
                 ->where('user_id', $message->sender_user_id)
                 ->value('name')
                 ?? $message->sender?->username
-                ?? 'Former Commander';
+                ?? 'Former Player';
         }
 
         return [

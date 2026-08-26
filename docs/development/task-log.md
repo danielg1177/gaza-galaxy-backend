@@ -1,5 +1,35 @@
 # Task Log
 
+## 2026-08-26 — Join push only if you blocked them
+
+**Status:** Complete
+
+- `Friendship::hasBlocked` is directional (`requester_id` = blocker)
+- Open-lobby join push and `blocked_players` use that; bidirectional `isBlocked` still hides chat/search/invites
+
+---
+
+## 2026-08-26 — Player terminology (commanders → players)
+
+**Status:** Complete
+
+- User-facing copy refers to players, not commanders
+- Default in-game fallback name is `Player`; deleted accounts anonymize as `Former Player`
+- Push/chat strings: blocked-player join, campaign ended, chat blocked
+- Persisted `state_json` key `commanderStatusNotices` unchanged
+
+---
+
+## 2026-08-26 — Chat blocked-send UI
+
+**Status:** Complete
+
+- `GET /games/{game}/messages` returns `can_send` / `cannot_send_reason`
+- `POST` 422 copy: "You cannot send messages in this game. Communication with the other player is blocked."
+- ConversationModal replaces the composer with that reason when send is blocked (web-safe alert for other send failures)
+
+---
+
 ## 2026-08-26 — Account deletion, block, and chat report
 
 **Status:** Complete
@@ -33,7 +63,7 @@
 - `PATCH /api/auth/username` on `AuthController::updateUsername` — unique username, same charset as register (3–32, alphanumeric + underscore)
 - `PATCH /api/auth/password` on `AuthController::updatePassword` — current password + confirmed new password (min 6)
 - Wrong current password returns 422 `{ message, errors.current_password }` (not 401)
-- Username change does not rewrite `game_players` commander names or `state_json` player names
+- Username change does not rewrite `game_players` player names or `state_json` player names
 - Current Sanctum token stays valid after password change
 
 ---

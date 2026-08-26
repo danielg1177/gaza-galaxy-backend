@@ -43,7 +43,7 @@ Deletes only the current token: `$request->user()->currentAccessToken()->delete(
 
 `GET /api/auth/me` — auth required.
 
-Returns `{ "id": 1, "username": "commander_dan" }`.
+Returns `{ "id": 1, "username": "player_dan" }`.
 
 ---
 
@@ -57,7 +57,7 @@ Returns `{ "id": 1, "username": "commander_dan" }`.
 **Logic:**
 1. Update `users.username`.
 2. Return `{ "id", "username" }`.
-3. Do **not** rewrite `game_players` commander names or `state_json` player names. Username is the account login identity; in-game names are per-campaign.
+3. Do **not** rewrite `game_players` player names or `state_json` player names. Username is the account login identity; in-game names are per-campaign.
 
 ---
 
@@ -89,7 +89,7 @@ There is still no email-based password reset. This endpoint is for a signed-in u
 1. `Hash::check` current password — **422** if false (not 401).
 2. `AccountDeletionService` settles live games, then deletes the user.
 3. Waiting games they hosted are deleted. Open-lobby seats they joined are released. Pending invites they received are declined (cancels those games).
-4. In-progress: permanent forfeit, commander name becomes `Former Commander`, creator transfers to the next remaining human. If it is their turn, `current_user_id` moves to the next playing human (action phase skipped). If they are the last playing human, the match finishes with no winner.
+4. In-progress: permanent forfeit, player name becomes `Former Player`, creator transfers to the next remaining human. If it is their turn, `current_user_id` moves to the next playing human (action phase skipped). If they are the last playing human, the match finishes with no winner.
 5. All Sanctum tokens are revoked. Push fields are cleared.
 
 Local pass-and-play campaigns on the device are not server data and are not wiped.

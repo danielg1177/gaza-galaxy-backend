@@ -34,7 +34,7 @@ Public.
 
 **Response 201:**
 ```json
-{ "user": { "id": 1, "username": "commander_dan" }, "token": "1|abc123..." }
+{ "user": { "id": 1, "username": "player_dan" }, "token": "1|abc123..." }
 ```
 
 ---
@@ -49,7 +49,7 @@ Public.
 
 **Response 200:**
 ```json
-{ "user": { "id": 1, "username": "commander_dan" }, "token": "2|xyz789..." }
+{ "user": { "id": 1, "username": "player_dan" }, "token": "2|xyz789..." }
 ```
 
 **Response 401:**
@@ -74,7 +74,7 @@ Auth required.
 
 **Response 200:**
 ```json
-{ "id": 1, "username": "commander_dan" }
+{ "id": 1, "username": "player_dan" }
 ```
 
 ---
@@ -94,7 +94,7 @@ Auth required.
 { "id": 1, "username": "new_name" }
 ```
 
-Does not rewrite `game_players` commander names or `state_json` player names.
+Does not rewrite `game_players` player names or `state_json` player names.
 
 ---
 
@@ -132,7 +132,7 @@ Auth required.
 
 **Validation:** `current_password` required.
 
-**Logic:** Verify password (422 if wrong). Permanently leave live games (forfeit + anonymize commander as "Former Commander"; skip the action phase if it is their turn; finish the match if they are the last playing human). Cancel waiting lobbies they host. Release open-lobby seats they joined. Decline pending invites they received (cancels those games). Transfer `created_by_user_id` to the next remaining human. Revoke all Sanctum tokens. Delete the user row.
+**Logic:** Verify password (422 if wrong). Permanently leave live games (forfeit + anonymize player as "Former Player"; skip the action phase if it is their turn; finish the match if they are the last playing human). Cancel waiting lobbies they host. Release open-lobby seats they joined. Decline pending invites they received (cancels those games). Transfer `created_by_user_id` to the next remaining human. Revoke all Sanctum tokens. Delete the user row.
 
 **Response 200:**
 ```json
@@ -442,7 +442,7 @@ Auth required. Public waiting matchmaking lobbies the caller is **not** already 
       "id": 12,
       "name": "Dan's Campaign",
       "status": "waiting_for_players",
-      "host": { "id": 1, "username": "commander_dan" },
+      "host": { "id": 1, "username": "player_dan" },
       "map_config": { "mapSize": "medium", "mapWidth": 286, "mapHeight": 286, "planetCount": 30, "seed": 1748556123456 },
       "human_filled": 1,
       "human_total": 3,
@@ -471,6 +471,8 @@ Auth required. Claims the next empty human seat (`is_ai = false`, `user_id` null
 ```
 
 `should_start` is `true` when this join filled the last human seat. The client then generates `state_json` and calls `POST /games/{id}/start`.
+
+Seated members who **blocked the joiner** get a push: "A player you've blocked joined this lobby." Members the joiner blocked are not notified.
 
 **Errors:**
 - `422` — not an open lobby, already a member, or game already started
@@ -668,7 +670,7 @@ Auth required. Returns pending game invites addressed to the authenticated user.
     {
       "id": 3,
       "game": { "id": 1, "name": "The Final War" },
-      "inviter": { "id": 1, "username": "commander_dan" },
+      "inviter": { "id": 1, "username": "player_dan" },
       "player_count": 3,
       "created_at": "2026-05-29T12:00:00.000Z"
     }
@@ -712,16 +714,20 @@ Auth required. Members only. Omits `hidden_at` messages and messages from users 
 {
   "messages": [
     { "id": 1, "senderUserId": 5, "senderName": "Nova", "content": "gg", "createdAt": "2026-08-26T12:00:00.000Z" }
-  ]
+  ],
+  "can_send": true,
+  "cannot_send_reason": null
 }
 ```
 
-`senderUserId` is `null` when the sender's account was deleted (`senderName` is then `"Former Commander"`).
+`senderUserId` is `null` when the sender's account was deleted (`senderName` is then `"Former Player"`).
+
+When every other remaining human is in a block with the caller, `can_send` is `false` and `cannot_send_reason` is a human-readable string. Old clients can ignore the extra fields.
 
 ---
 
 ### `POST /api/games/{id}/messages`
-Auth required. Members only. `content` max 500. `422` if every other remaining human is in a block with the sender. Push is not sent to blocked counterparts.
+Auth required. Members only. `content` max 500. `422` if every other remaining human is in a block with the sender (same copy as `cannot_send_reason`). Push is not sent to blocked counterparts.
 
 ---
 

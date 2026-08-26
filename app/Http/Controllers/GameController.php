@@ -505,13 +505,13 @@ class GameController extends Controller
             ) {
                 continue;
             }
-            if (! Friendship::isBlocked($me->id, (int) $otherPlayer->user_id)) {
+            if (! Friendship::hasBlocked((int) $otherPlayer->user_id, $me->id)) {
                 continue;
             }
             $this->notificationService->sendPushNotification(
                 $otherPlayer->user,
                 $locked->name,
-                "A commander you've blocked joined this lobby. They cannot message you.",
+                "A player you've blocked joined this lobby. They cannot message you.",
                 ['game_id' => $locked->id, 'event' => 'blocked_player_joined']
             );
         }
@@ -857,7 +857,7 @@ class GameController extends Controller
             if ($player->is_ai || $player->user_id === null || $player->user_id == $viewer->id) {
                 continue;
             }
-            if (! Friendship::isBlocked($viewer->id, (int) $player->user_id)) {
+            if (! Friendship::hasBlocked($viewer->id, (int) $player->user_id)) {
                 continue;
             }
             $blocked[] = [

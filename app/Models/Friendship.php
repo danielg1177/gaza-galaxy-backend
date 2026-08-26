@@ -41,6 +41,18 @@ class Friendship extends Model
             ->exists();
     }
 
+    public static function hasBlocked(int $blockerId, int $blockedId): bool
+    {
+        if ($blockerId === $blockedId) {
+            return false;
+        }
+
+        return static::where('status', 'blocked')
+            ->where('requester_id', $blockerId)
+            ->where('addressee_id', $blockedId)
+            ->exists();
+    }
+
     /**
      * @return list<int>
      */

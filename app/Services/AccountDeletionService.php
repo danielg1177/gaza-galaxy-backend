@@ -155,7 +155,7 @@ class AccountDeletionService
         if (! $player->is_eliminated) {
             $player->is_forfeited = true;
         }
-        $player->name = 'Former Commander';
+        $player->name = 'Former Player';
         $player->save();
 
         $wasCurrent = $game->current_user_id == $departing->id;
@@ -182,7 +182,7 @@ class AccountDeletionService
                 if (($statePlayer['id'] ?? null) !== $playerId) {
                     continue;
                 }
-                $statePlayer['name'] = 'Former Commander';
+                $statePlayer['name'] = 'Former Player';
                 if (! ($statePlayer['isEliminated'] ?? false)) {
                     $statePlayer['isForfeited'] = true;
                 }
@@ -206,7 +206,7 @@ class AccountDeletionService
                 $notifications[] = [
                     'user' => $other,
                     'title' => $game->name,
-                    'body' => 'A commander left. The campaign has ended.',
+                    'body' => 'A player left. The campaign has ended.',
                     'data' => ['game_id' => $game->id, 'event' => 'game_ended'],
                 ];
             }
@@ -235,7 +235,7 @@ class AccountDeletionService
 
     private function anonymizeAndTransfer(Game $game, GamePlayer $player, User $departing): void
     {
-        $player->name = 'Former Commander';
+        $player->name = 'Former Player';
         $player->save();
 
         $state = json_decode($game->state_json ?? '', true);
@@ -243,7 +243,7 @@ class AccountDeletionService
             $playerId = 'player-'.$player->turn_order;
             foreach ($state['players'] as &$statePlayer) {
                 if (($statePlayer['id'] ?? null) === $playerId) {
-                    $statePlayer['name'] = 'Former Commander';
+                    $statePlayer['name'] = 'Former Player';
                 }
             }
             unset($statePlayer);
@@ -334,7 +334,7 @@ class AccountDeletionService
             'id' => $id,
             'kind' => 'forfeit',
             'playerId' => $playerId,
-            'playerName' => 'Former Commander',
+            'playerName' => 'Former Player',
             'acknowledgedByPlayerIds' => [],
         ];
         $state['commanderStatusNotices'] = $existing;
