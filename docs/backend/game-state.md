@@ -109,4 +109,4 @@ Stored on `games.map_config_json`. Passed to the Node.js engine at game start.
 ```
 
 Valid `mapSize` values: `small` | `medium` | `large`
-Valid `galaxyShape` values: `scattered` | `dense_core` | `ring` | `cluster` | `spiral`
+Valid `galaxyShape` values: `scattered` | `dense_core` | `ring` | `cluster` | `spiral` | `crescent` | `binary` | `ribbon` | `halo` | `broken_ring` | `crossroads` | `clover`

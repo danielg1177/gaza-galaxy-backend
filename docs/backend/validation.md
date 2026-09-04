@@ -59,7 +59,7 @@ Use Laravel Form Requests for all validation. This keeps controllers thin and ma
 | `map_config.mapHeight` | required \| integer \| min:1 |
 | `map_config.planetCount` | required \| integer \| min:2 \| max:100 |
 | `map_config.seed` | required \| integer |
-| `map_config.galaxyShape` | required \| in:scattered,dense_core,ring,cluster,spiral |
+| `map_config.galaxyShape` | required \| in:scattered,dense_core,ring,cluster,spiral,crescent,binary,ribbon,halo,broken_ring,crossroads,clover |
 | `player_slots` | required \| array \| min:2 \| max:8 |
 | `player_slots.*.type` | required \| in:human,ai |
 | `player_slots.*.name` | required \| string \| max:50 |
