@@ -130,3 +130,13 @@ Decisions that shaped the backend design and the reasoning behind them.
 
 **Rationale:** The engine and API already model `Player` / `game_players`. Commander was leftover product language.
 
+---
+
+## 14. Last remaining sitting-in human may delete the game
+
+**Decision:** `DELETE /games/{id}` stays open to the creator in any status. It is also allowed for a human member when they are the only sitting-in human left (`is_forfeited` is false; AI slots and empty seats do not count). Typical case: host invites a friend, then forfeits; the friend can remove the row.
+
+**Rationale:** Creator-only delete left the remaining player stuck with a match the host had already abandoned. Transferring `created_by_user_id` on forfeit would let the sitter rejoin as a non-host; expanding delete is enough.
+
+**Alternatives considered:** Transferring creator on forfeit (rejected — sit-out should not steal host); allowing any member to delete whenever someone has forfeited (rejected — a three-human game should not vanish while two people are still playing).
+

@@ -1,5 +1,15 @@
 # Task Log
 
+## 2026-09-10 — Last remaining human can delete after forfeit
+
+**Status:** Complete
+
+- `DELETE /games/{id}`: member required; creator always, or sole sitting-in human (other humans `is_forfeited`; AI ignored)
+- 403 copy: `Only the creator or the last remaining human player can delete this game`
+- `Game::userCanDelete`
+
+---
+
 ## 2026-09-10 — Command Center play again / forfeit / card menu
 
 **Status:** Complete
@@ -96,7 +106,7 @@
 - Sets `status = finished`, `current_user_id = null`, `winner_user_id = null`
 - Patches `state_json` `status` / `winnerId` so clients see an ended match with no winner
 - Push `event: game_ended` to every other human player
-- Distinct from forfeit (sit-out) and `DELETE` (creator-only row removal)
+- Distinct from forfeit (sit-out) and `DELETE` (~~creator-only row removal~~ creator, or last remaining sitting-in human — 2026-09-10)
 
 ---
 

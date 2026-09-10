@@ -57,4 +57,25 @@ class Game extends Model
     {
         return $this->belongsTo(User::class, 'current_user_id');
     }
+
+    /**
+     * Creator always can. Otherwise the sole remaining sitting-in human
+     * (not AI, has a user, not forfeited) can delete — e.g. after the host
+     * sits out of a friends match.
+     */
+    public function userCanDelete(int $userId): bool
+    {
+        if ($this->created_by_user_id == $userId) {
+            return true;
+        }
+
+        $sittingInHumans = $this->players->filter(
+            fn (GamePlayer $player) => ! $player->is_ai
+                && $player->user_id !== null
+                && ! $player->is_forfeited
+        );
+
+        return $sittingInHumans->count() === 1
+            && $sittingInHumans->first()->user_id == $userId;
+    }
 }

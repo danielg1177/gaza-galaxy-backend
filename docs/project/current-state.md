@@ -65,7 +65,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `POST /games/{game}/leave` — release a waiting seat (not the creator)
 - `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
 - `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., created_by_user_id, unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members get `is_my_turn: false` / `alert_state: waiting`.
-- `DELETE /games/{game}` — creator only, any status — 200 `{ message }`
+- `DELETE /games/{game}` — member; creator always, or sole remaining sitting-in human after others forfeit — any status — 200 `{ message }`
 - `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
 - `POST /games/{game}/rejoin` — sitting-out human member, in-progress, not eliminated — 200 `{ rejoined: true }`
 - `POST /games/{game}/end` — any human member, in-progress — 200 `{ ended: true }` — finishes the match for everyone (`winner_user_id` null)
@@ -108,6 +108,8 @@ _None._
 **Fix: Task 161** — advance `games.turn_number` to `$request->resulting_state['turnNumber']` instead of `+1`. See `docs/development/known-issues.md` for full details.
 
 ## Last Completed Task
+
+**Last remaining human can delete after forfeit** (2026-09-10) — `DELETE /games/{id}` allows the creator (any status) or the sole remaining sitting-in human when every other human has forfeited. AI slots do not count. Command Center shows **Delete** in that case so a friends match is not stuck after the host sits out.
 
 **Command Center play again + forfeit + card ⋮ menu** (2026-09-10) — `GET /games` (and create/show/start payloads) include `created_by_user_id`; list players are ordered by `turn_order`. Command Center Play Again recreates a match from settings only (new map/seed). Forfeit is available on the card menu for any sitting-in human of an in-progress game.
 

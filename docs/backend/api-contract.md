@@ -535,7 +535,7 @@ Auth required. Must be the game creator.
 ---
 
 ### `DELETE /api/games/{id}`
-Auth required. Must be the game creator. Can be deleted regardless of game status.
+Auth required. Caller must be a member. Allowed for the creator in any status, or for the sole remaining sitting-in human (every other human slot is forfeited; AI does not count). 403 `{ "message": "Forbidden" }` if not a member; 403 `{ "message": "Only the creator or the last remaining human player can delete this game" }` otherwise.
 
 **Response 200:**
 ```json
@@ -577,7 +577,7 @@ Clears `is_forfeited`. Does not interrupt another player's in-progress turn; the
 ---
 
 ### `POST /api/games/{id}/end`
-Auth required. Any human member of an in-progress game (not just the creator). Distinct from forfeit (sit-out) and from delete (creator-only row removal).
+Auth required. Any human member of an in-progress game (not just the creator). Distinct from forfeit (sit-out) and from delete (row removal by the creator or the last remaining sitting-in human).
 
 Sets `games.status = 'finished'`, `current_user_id = null`, and `winner_user_id = null`. Patches `state_json` so `status` is `"finished"` and `winnerId` is `null`. Notifies all other human players.
 

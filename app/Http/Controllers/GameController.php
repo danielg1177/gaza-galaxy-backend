@@ -397,15 +397,16 @@ class GameController extends Controller
     {
         $me = $request->user();
 
-        if (! GamePlayer::where('game_id', $game->id)->where('user_id', $me->id)->exists()) {
+        $game->load(['players.user']);
+
+        if (! $game->players->contains(fn (GamePlayer $player) => $player->user_id == $me->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if ($game->created_by_user_id != $me->id) {
-            return response()->json(['message' => 'Only the creator can delete this game'], 403);
+        if (! $game->userCanDelete($me->id)) {
+            return response()->json(['message' => 'Only the creator or the last remaining human player can delete this game'], 403);
         }
 
-        $game->load(['players.user']);
         $wasWaitingLobby = $this->isMatchmakingLobby($game);
         $gameName = $game->name;
         $otherHumans = $game->players
