@@ -1,5 +1,14 @@
 # Task Log
 
+## 2026-09-10 — Scheduled troop movements (client GameState)
+
+**Status:** Complete (frontend engine; no API/schema change)
+
+- Standing orders live on `GameState.scheduledMovements` inside `state_json`
+- Backend remains opaque; prune-on-capture and per-turn dispatch are client `resolveTurn`
+
+---
+
 ## 2026-08-26 — Join push only if you blocked them
 
 **Status:** Complete

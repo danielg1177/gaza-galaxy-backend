@@ -6,6 +6,8 @@
 
 The backend treats `state_json` as an **opaque string** — it stores and returns it as-is, never mutates individual fields within it, and only reads top-level fields during turn submission for validation and pointer advancement.
 
+Client `GameState` may include `scheduledMovements` (standing fleet orders). The backend does not read this field; it is persisted and returned inside `state_json` like any other engine field. Absent on saves from before 2026-09-10.
+
 **Exception (2026-08-19):** `POST /games/{id}/end` patches `state_json.status` to `"finished"` and `state_json.winnerId` to `null` so clients loading the last committed blob see an ended match with no winner. Turn submit still replaces `state_json` in full.
 
 ---
