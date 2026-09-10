@@ -51,6 +51,7 @@ class GameController extends Controller
             return [
                 'id' => $game->id,
                 'name' => $game->name,
+                'created_by_user_id' => $game->created_by_user_id,
                 'status' => $game->status,
                 'play_mode' => 'async_multiplayer',
                 'alert_state' => $alertState,
@@ -59,7 +60,7 @@ class GameController extends Controller
                 'winner_user_id' => $game->winner_user_id,
                 'is_open_lobby' => $this->isMatchmakingLobby($game),
                 'map_config' => $this->decodeMapConfig($game),
-                'players' => $game->players->map(fn (GamePlayer $p) => $this->serializePlayer($p))->values(),
+                'players' => $game->players->sortBy('turn_order')->values()->map(fn (GamePlayer $p) => $this->serializePlayer($p))->values(),
                 'current_player_name' => $currentPlayer?->name,
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
@@ -230,6 +231,7 @@ class GameController extends Controller
             'game' => [
                 'id' => $game->id,
                 'name' => $game->name,
+                'created_by_user_id' => $game->created_by_user_id,
                 'status' => $game->status,
                 'play_mode' => 'async_multiplayer',
                 'alert_state' => $alertState,
@@ -348,6 +350,7 @@ class GameController extends Controller
             'game' => [
                 'id' => $game->id,
                 'name' => $game->name,
+                'created_by_user_id' => $game->created_by_user_id,
                 'status' => $game->status,
                 'play_mode' => 'async_multiplayer',
                 'round_number' => $game->round_number,
@@ -629,6 +632,7 @@ class GameController extends Controller
             'game' => [
                 'id' => $game->id,
                 'name' => $game->name,
+                'created_by_user_id' => $game->created_by_user_id,
                 'status' => $game->status,
                 'play_mode' => 'async_multiplayer',
                 'alert_state' => $isMyTurn ? 'your_turn' : 'waiting',

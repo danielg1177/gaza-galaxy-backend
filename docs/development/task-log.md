@@ -1,5 +1,15 @@
 # Task Log
 
+## 2026-09-10 — Command Center play again / forfeit / card menu
+
+**Status:** Complete
+
+- List/create/show/start game payloads include `created_by_user_id`
+- `GET /games` players ordered by `turn_order`
+- No new routes: Play Again is client `POST /games` with the same settings; Forfeit from Command Center uses existing `POST /games/{id}/forfeit` (and the existing on-turn AI submit path when it is the caller's turn)
+
+---
+
 ## 2026-09-10 — Scheduled troop movements (client GameState)
 
 **Status:** Complete (frontend engine; no API/schema change)

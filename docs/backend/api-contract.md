@@ -320,6 +320,7 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
     {
       "id": 1,
       "name": "The Final War",
+      "created_by_user_id": 1,
       "status": "active",
       "play_mode": "async_multiplayer",
       "alert_state": "your_turn",
@@ -347,6 +348,8 @@ Each player object includes `is_forfeited`. For a sitting-out member, `is_my_tur
 `is_open_lobby` is `true` when `status` is `waiting_for_players` and `state_json` is empty (matchmaking lobby). Friend-invite games populate `state_json` at create, so they are not open lobbies. Command Center should hide open lobbies; they belong on Find Game → Pending.
 
 `map_config` is the decoded `map_config_json` object.
+
+`created_by_user_id` is the host. Players are ordered by `turn_order` (slot 0 is the original creator unless host transferred). Used by Command Center Play Again to swap the caller into the host seat.
 
 ---
 
