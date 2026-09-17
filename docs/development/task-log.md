@@ -1,5 +1,15 @@
 # Task Log
 
+## 2026-09-17 — Create Game map type (`map_config.galaxyShape` optional)
+
+**Status:** Complete (client-driven; no schema or route change)
+
+- `map_config.galaxyShape` may be omitted (Random) or one of the 17 galaxy shapes
+- Stored as opaque JSON on `games.map_config_json` as before
+- Play Again and open-lobby start read the stored shape when present
+
+---
+
 ## 2026-09-10 — Last remaining human can delete after forfeit
 
 **Status:** Complete

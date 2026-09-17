@@ -91,7 +91,7 @@ CREATE TABLE games (
 |--------|-------|
 | `status` | `waiting` = pending invites; `active` = in progress; `finished` = ended (win, player-ended via `POST /games/{id}/end`, or cancellation). Player-ended games keep `winner_user_id` null. |
 | `play_mode` | Only `async_multiplayer` — pass-and-play is local-only. |
-| `map_config_json` | `{ "mapSize": "medium", "mapWidth": 286, "mapHeight": 286, "planetCount": 30, "seed": 1748556123456, "galaxyShape": "scattered" }` |
+| `map_config_json` | `{ "mapSize": "medium", "mapWidth": 286, "mapHeight": 286, "planetCount": 30, "seed": 1748556123456, "galaxyShape": "scattered" }` — `galaxyShape` optional; omit for Random |
 | `current_user_id` | The human player whose turn it is. NULL only for AI turns, but AI turns are resolved client-side and should never persist. |
 | `state_json` | Full serialized `GameState` TypeScript object. Empty string until game starts. Treated as opaque by the backend. |
 | `turn_number` | Increments by 1 each time any player submits a turn. |

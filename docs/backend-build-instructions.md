@@ -127,6 +127,7 @@ CREATE TABLE games (
   ```json
   { "mapSize": "medium", "mapWidth": 286, "mapHeight": 286, "planetCount": 30, "seed": 1748556123456, "galaxyShape": "scattered" }
   ```
+  `galaxyShape` is optional; omit when Create Game map type is Random.
 - `current_user_id`: the human player whose turn it currently is. NULL if it is an AI's turn (but this should never persist — the client resolves all AI turns before submitting)
 - `state_json`: the full serialized `GameState` TypeScript object (as JSON). Empty string until the game starts.
 - `turn_number`: increments by 1 each time any player's turn is submitted
@@ -551,7 +552,7 @@ Auth required.
 
 **Validation:**
 - `name`: required | string | max:100
-- `map_config`: required object with `mapSize` (small|medium|large), `mapWidth` (int > 0), `mapHeight` (int > 0), `planetCount` (int 2–100), `seed` (int), `galaxyShape` (scattered|dense_core|ring|cluster|spiral|crescent|binary|ribbon|halo|broken_ring|crossroads|clover|coil|barred|hourglass|lanes|asterisk)
+- `map_config`: required object with `mapSize` (small|medium|large), `mapWidth` (int > 0), `mapHeight` (int > 0), `planetCount` (int 2–100), `seed` (int), optional `galaxyShape` (scattered|dense_core|ring|cluster|spiral|crescent|binary|ribbon|halo|broken_ring|crossroads|clover|coil|barred|hourglass|lanes|asterisk; omit for Random)
 - `player_slots`: required array, length 2–8
 - Each slot: `type` (human|ai), `user_id` (nullable int for humans), `name` (string max 50), `difficulty` (easy|normal|hard, only for ai type)
 - All human `user_id`s (non-null, non-creator) must be IDs of users who are **accepted friends** of the authenticated creator

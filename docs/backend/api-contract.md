@@ -378,6 +378,8 @@ Auth required.
 
 `user_id: null` in the first human slot means the authenticated creator fills it. All other human `user_id` values must be accepted friends of the creator.
 
+`map_config.galaxyShape` is optional. When set it is one of the 17 galaxy shapes. When omitted, the client treats map type as Random and picks a shape from the seed.
+
 **Open lobby (matchmaking):** extra human slots may omit `user_id` (or send `null`). Do not mix invited friend IDs and open seats in one request (`422`). Do not send `state_json` — the game stays `waiting_for_players` until `POST /games/{id}/start`. No `game_invites` rows are created for open seats.
 
 **Invite path:** every extra human has a friend `user_id`. Client sends `state_json`; `startGame()` runs immediately (existing creator-first behavior).

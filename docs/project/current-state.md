@@ -1,6 +1,6 @@
 # Current State
 
-_Last updated: 2026-09-10_
+_Last updated: 2026-09-17_
 
 ---
 
@@ -108,6 +108,8 @@ _None._
 **Fix: Task 161** — advance `games.turn_number` to `$request->resulting_state['turnNumber']` instead of `+1`. See `docs/development/known-issues.md` for full details.
 
 ## Last Completed Task
+
+**Create Game map type** (2026-09-17) — `map_config.galaxyShape` is optional on `POST /games`. Omit for Random; when set it is one of the 17 galaxy shapes and is stored in `map_config_json`. No schema or route change; the client generates the map.
 
 **Last remaining human can delete after forfeit** (2026-09-10) — `DELETE /games/{id}` allows the creator (any status) or the sole remaining sitting-in human when every other human has forfeited. AI slots do not count. Command Center shows **Delete** in that case so a friends match is not stuck after the host sits out.
 
