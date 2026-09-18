@@ -1,5 +1,15 @@
 # Task Log
 
+## 2026-09-18 — Pending invitees are not on their turn
+
+**Status:** Complete
+
+- `GET /games` and `GET /games/{id}`: `is_my_turn` is false while the caller has a pending `game_invites` row, even if `current_user_id` already points at them
+- Parked invite-friends games stay `waiting_for_players` after the creator submits; the invitee must accept before entering the map
+- Notification deep-link on the client lands on Command Center for those games
+
+---
+
 ## 2026-09-17 — Create Game map type (`map_config.galaxyShape` optional)
 
 **Status:** Complete (client-driven; no schema or route change)

@@ -140,3 +140,13 @@ Decisions that shaped the backend design and the reasoning behind them.
 
 **Alternatives considered:** Transferring creator on forfeit (rejected — sit-out should not steal host); allowing any member to delete whenever someone has forfeited (rejected — a three-human game should not vanish while two people are still playing).
 
+---
+
+## 15. Pending invitees are not on their turn
+
+**Decision:** `is_my_turn` is false while the caller has a pending `game_invites` row for that game, even if `current_user_id` already points at them after the creator submitted.
+
+**Rationale:** Creator-first start parks the match as `waiting_for_players`. Treating the invitee as the current player opened the map from a notification, then End Turn / Exit Game failed with 422 because the game is not `in_progress`.
+
+**Alternatives considered:** Auto-accepting on notification tap (rejected — skips decline); returning 403 from `GET /games/{id}` until accept (rejected — they are already in `game_players` and need the invite UI).
+

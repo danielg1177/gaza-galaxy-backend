@@ -343,7 +343,7 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
 
 `alert_state` values: `waiting_for_players` | `waiting` | `your_turn` | `in_progress` | `finished`
 
-Each player object includes `is_forfeited`. For a sitting-out member, `is_my_turn` is `false` and `alert_state` is `waiting` even if `current_user_id` still points at them.
+Each player object includes `is_forfeited`. For a sitting-out member, `is_my_turn` is `false` and `alert_state` is `waiting` even if `current_user_id` still points at them. The same is true for a member who still has a `pending` `game_invites` row: they are already in `game_players`, but `is_my_turn` stays `false` until they accept.
 
 `is_open_lobby` is `true` when `status` is `waiting_for_players` and `state_json` is empty (matchmaking lobby). Friend-invite games populate `state_json` at create, so they are not open lobbies. Command Center should hide open lobbies; they belong on Find Game → Pending.
 
@@ -642,7 +642,7 @@ Auth required. Must be the current player.
 
 If `resulting_state.currentPlayerId` maps to a created AI (`is_ai` and no `user_id`) or a sitting-out human (`is_forfeited`): `422 { "message": "Turn must advance to a playing human before submitting" }` (AI slots use the existing human-player message).
 
-`is_my_turn` is false and `alert_state` is `waiting` for a sitting-out member even if `games.current_user_id` still points at them.
+`is_my_turn` is false and `alert_state` is `waiting` for a sitting-out member even if `games.current_user_id` still points at them. A pending invitee also gets `is_my_turn: false` until they accept (`POST /invites/{id}/accept`).
 
 **Response 200:**
 ```json

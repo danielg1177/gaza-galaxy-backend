@@ -1,6 +1,6 @@
 # Current State
 
-_Last updated: 2026-09-17_
+_Last updated: 2026-09-18_
 
 ---
 
@@ -64,7 +64,7 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `POST /games/{game}/join` — claim next empty human seat
 - `POST /games/{game}/leave` — release a waiting seat (not the creator)
 - `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
-- `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., created_by_user_id, unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members get `is_my_turn: false` / `alert_state: waiting`.
+- `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., created_by_user_id, unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members and pending invitees get `is_my_turn: false` / `alert_state: waiting` (or `waiting_for_players` when the match is parked).
 - `DELETE /games/{game}` — member; creator always, or sole remaining sitting-in human after others forfeit — any status — 200 `{ message }`
 - `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
 - `POST /games/{game}/rejoin` — sitting-out human member, in-progress, not eliminated — 200 `{ rejoined: true }`
@@ -108,6 +108,8 @@ _None._
 **Fix: Task 161** — advance `games.turn_number` to `$request->resulting_state['turnNumber']` instead of `+1`. See `docs/development/known-issues.md` for full details.
 
 ## Last Completed Task
+
+**Pending invitees are not on their turn** (2026-09-18) — `GET /games` and `GET /games/{id}` set `is_my_turn` false while the caller has a pending `game_invites` row, even if `current_user_id` already points at them (creator submitted and the match is parked as `waiting_for_players`). Notification deep-link stays on Command Center until they accept.
 
 **Create Game map type** (2026-09-17) — `map_config.galaxyShape` is optional on `POST /games`. Omit for Random; when set it is one of the 17 galaxy shapes and is stored in `map_config_json`. No schema or route change; the client generates the map.
 

@@ -25,12 +25,11 @@ class GameController extends Controller
         $me = $request->user();
 
         $gameIds = GamePlayer::where('user_id', $me->id)->pluck('game_id');
-        $games = Game::whereIn('id', $gameIds)->with(['players.user'])->get();
+        $games = Game::whereIn('id', $gameIds)->with(['players.user', 'invites'])->get();
 
         $gamesPayload = $games->map(function (Game $game) use ($me) {
             $player = $game->players->firstWhere('user_id', $me->id);
-            $iAmForfeited = $player?->is_forfeited === true;
-            $isMyTurn = $game->current_user_id === $me->id && ! $iAmForfeited;
+            $isMyTurn = $this->isCallersTurn($game, $me, $player);
             $hasInProgressActions = Turn::where('game_id', $game->id)
                 ->where('user_id', $me->id)
                 ->where('turn_number', $game->turn_number)
@@ -259,8 +258,7 @@ class GameController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $iAmForfeited = $myPlayer->is_forfeited === true;
-        $isMyTurn = $game->current_user_id === $me->id && ! $iAmForfeited;
+        $isMyTurn = $this->isCallersTurn($game, $me, $myPlayer);
         $hasInProgressActions = Turn::where('game_id', $game->id)
             ->where('user_id', $me->id)
             ->where('turn_number', $game->turn_number)
@@ -905,6 +903,38 @@ class GameController extends Controller
     private function abortJson(int $status, string $message): never
     {
         abort(response()->json(['message' => $message], $status));
+    }
+
+    /**
+     * True when the caller is the current player and has accepted (or never
+     * needed) their invite. Pending invitees are members in game_players but
+     * must not enter the map or receive a "your turn" alert until they accept.
+     */
+    private function isCallersTurn(Game $game, User $me, ?GamePlayer $player): bool
+    {
+        if ($player?->is_forfeited === true) {
+            return false;
+        }
+
+        if ($game->current_user_id !== $me->id) {
+            return false;
+        }
+
+        return ! $this->hasPendingInviteFor($game, (int) $me->id);
+    }
+
+    private function hasPendingInviteFor(Game $game, int $userId): bool
+    {
+        if ($game->relationLoaded('invites')) {
+            return $game->invites->contains(
+                fn (GameInvite $invite) => $invite->invitee_id == $userId && $invite->status === 'pending'
+            );
+        }
+
+        return GameInvite::where('game_id', $game->id)
+            ->where('invitee_id', $userId)
+            ->where('status', 'pending')
+            ->exists();
     }
 
     private function isAcceptedFriend(int $creatorId, int $userId): bool

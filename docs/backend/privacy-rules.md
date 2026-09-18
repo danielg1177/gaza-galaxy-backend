@@ -34,7 +34,7 @@ return response()->json([
 ]);
 ```
 
-If `is_my_turn = false`, `in_progress_actions` must be `null` regardless of what is in the database.
+If `is_my_turn = false`, `in_progress_actions` must be `null` regardless of what is in the database. Callers with a pending `game_invites` row are not treated as the current player (`is_my_turn` false) even when `current_user_id` already points at them.
 
 ---
 
