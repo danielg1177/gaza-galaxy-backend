@@ -86,6 +86,16 @@ The client has already run all AI turns before submitting. `resulting_state.curr
 
 For each `resulting_state.players[i]` where `isEliminated = true`, update `game_players` where `turn_order = i` to set `is_eliminated = 1`.
 
+### Preserved State Keys
+
+Every submit replaces `state_json` wholesale with whatever the submitting client computed, so a player running an older bundle deletes any `GameState` field it does not know about — for every player in the game, not just itself. Before the state is stored, `carryForwardMissingState` restores the keys in `TurnController::PRESERVED_STATE_KEYS` from the previously stored `state_json` when the submission omits them **entirely**:
+
+| Key | Why |
+|-----|-----|
+| `scheduledMovements` | Standing fleet orders. Added 2026-09-10; clients older than that drop the key and wipe everyone's schedules. |
+
+A key that is present but empty (`[]`) is a real change and always wins — only an absent key is carried forward. Do not add keys whose absence is meaningful: `knockoutResumePlayerId` and `pendingFarewellPlayerIds` are cleared precisely by being omitted, so restoring them would resurrect a finished knockout. Entries revived this way can be stale, since an old client also skipped the pruning that normally runs during a turn; the next up-to-date client prunes them on its own turn.
+
 ### Turn Record
 
 Upsert the `turns` row:
@@ -193,7 +203,7 @@ The script is built from `src/game/` in the frontend repository and must be plac
 ## Key Rules
 
 - The backend **never re-runs** the game engine on turn submission.
-- `state_json` is always the submitted `resulting_state`, stored as-is.
+- `state_json` is the submitted `resulting_state`, stored as-is apart from the preserved-key restore described above.
 - Client `GameState.scheduledMovements` (standing fleet orders) travel inside that blob; the backend does not interpret them.
 - `currentPlayerId` in the submitted state is always a **human with a user_id** (the client resolves created AI and sitting-out humans first). That human may be eliminated when they are being given their knockout farewell turn. Sitting-out humans (`is_forfeited`) are rejected.
 - If `resulting_state.status = 'finished'`, the game ends immediately — no further turns are possible.

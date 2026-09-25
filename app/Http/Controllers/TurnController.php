@@ -14,6 +14,18 @@ use Illuminate\Support\Facades\DB;
 
 class TurnController extends Controller
 {
+    /**
+     * Top-level state keys that a client may add to but never drop.
+     *
+     * Every submit replaces `state_json` wholesale with whatever the submitting
+     * client computed, so a player running an older bundle deletes the fields it
+     * does not know about for everyone in the game. Keys listed here are restored
+     * from the stored state when a submission omits them entirely. Only list keys
+     * whose absence can never be intentional — `knockoutResumePlayerId` and the
+     * farewell queue, for example, are cleared precisely by being omitted.
+     */
+    private const PRESERVED_STATE_KEYS = ['scheduledMovements'];
+
     public function __construct(
         private NotificationService $notificationService
     ) {}
@@ -105,7 +117,7 @@ class TurnController extends Controller
             return response()->json(['message' => 'Stale turn data'], 409);
         }
 
-        $state = $request->resulting_state;
+        $state = $this->carryForwardMissingState($game, $request->resulting_state);
 
         foreach (['status', 'currentPlayerId', 'roundNumber', 'players'] as $key) {
             if (! array_key_exists($key, $state)) {
@@ -149,7 +161,7 @@ class TurnController extends Controller
                 ],
                 [
                     'submitted_actions_json' => json_encode($request->actions),
-                    'resulting_state_json' => json_encode($request->resulting_state),
+                    'resulting_state_json' => json_encode($state),
                     'events_json' => $request->events !== null ? json_encode($request->events) : null,
                     'in_progress_actions_json' => null,
                 ]
@@ -175,7 +187,7 @@ class TurnController extends Controller
 
                 $game->update([
                     'status' => 'finished',
-                    'state_json' => json_encode($request->resulting_state),
+                    'state_json' => json_encode($state),
                     'current_user_id' => null,
                     'winner_user_id' => $winnerUserId,
                 ]);
@@ -194,7 +206,7 @@ class TurnController extends Controller
             $newRoundNumber = isset($state['roundNumber']) ? (int) $state['roundNumber'] : $game->round_number;
 
             $game->update([
-                'state_json' => json_encode($request->resulting_state),
+                'state_json' => json_encode($state),
                 'current_user_id' => $nextPlayer->user_id,
                 'turn_number' => $newTurnNumber,
                 'round_number' => $newRoundNumber,
@@ -254,6 +266,31 @@ class TurnController extends Controller
         }
 
         return response()->json(['message' => 'Turn submitted']);
+    }
+
+    /**
+     * Restore any PRESERVED_STATE_KEYS the submitted state does not mention.
+     *
+     * A key present but empty (`[]`) is a real change and always wins; only a
+     * key that is absent altogether is carried forward. Entries revived this way
+     * may be stale — an old client also skipped the pruning that normally runs
+     * during a turn — but the next up-to-date client prunes them on its own turn.
+     */
+    private function carryForwardMissingState(Game $game, array $state): array
+    {
+        $stored = json_decode((string) $game->state_json, true);
+
+        if (! is_array($stored)) {
+            return $state;
+        }
+
+        foreach (self::PRESERVED_STATE_KEYS as $key) {
+            if (! array_key_exists($key, $state) && array_key_exists($key, $stored)) {
+                $state[$key] = $stored[$key];
+            }
+        }
+
+        return $state;
     }
 
     private function updateEliminations(Game $game, array $players): void
