@@ -335,13 +335,17 @@ Auth required. Returns all games the authenticated user is a player in. No `stat
       "current_player_name": "Dan",
       "round_number": 3,
       "turn_number": 12,
-      "created_at": "2026-05-29T12:00:00.000Z"
+      "created_at": "2026-05-29T12:00:00.000Z",
+      "last_activity_at": "2026-05-29T18:00:00.000Z",
+      "can_delete": true
     }
   ]
 }
 ```
 
 `alert_state` values: `waiting_for_players` | `waiting` | `your_turn` | `in_progress` | `finished`
+
+`last_activity_at` is the latest change to the game row, a seat, a turn (including a mid-turn save), an invite, or a chat message. `can_delete` is true for this caller when they created the game, they are the only human still sitting in, the game is `finished`, or `last_activity_at` is 7 days ago or older.
 
 Each player object includes `is_forfeited`. For a sitting-out member, `is_my_turn` is `false` and `alert_state` is `waiting` even if `current_user_id` still points at them. The same is true for a member who still has a `pending` `game_invites` row: they are already in `game_players`, but `is_my_turn` stays `false` until they accept.
 
@@ -537,7 +541,7 @@ Auth required. Must be the game creator.
 ---
 
 ### `DELETE /api/games/{id}`
-Auth required. Caller must be a member. Allowed for the creator in any status, or for the sole remaining sitting-in human (every other human slot is forfeited; AI does not count). 403 `{ "message": "Forbidden" }` if not a member; 403 `{ "message": "Only the creator or the last remaining human player can delete this game" }` otherwise.
+Auth required. Caller must be a member. Allowed for the creator in any status, for the sole remaining sitting-in human (every other human slot is forfeited; AI does not count), and for any human member when the game is `finished` or has not been touched for 7 days. A touch is the latest game-row, seat, turn (including a mid-turn save), invite, or chat change. 403 `{ "message": "Forbidden" }` if not a member; 403 `{ "message": "Only the creator or the last remaining human can delete a game that is still active. Any player can delete it once it is finished, or if it has not been touched in a week." }` otherwise.
 
 **Response 200:**
 ```json
@@ -579,7 +583,7 @@ Clears `is_forfeited`. Does not interrupt another player's in-progress turn; the
 ---
 
 ### `POST /api/games/{id}/end`
-Auth required. Any human member of an in-progress game (not just the creator). Distinct from forfeit (sit-out) and from delete (row removal by the creator or the last remaining sitting-in human).
+Auth required. Any human member of an in-progress game (not just the creator). Distinct from forfeit (sit-out) and from delete (row removal by the creator, the last remaining sitting-in human, or any member of a finished or week-idle game).
 
 Sets `games.status = 'finished'`, `current_user_id = null`, and `winner_user_id = null`. Patches `state_json` so `status` is `"finished"` and `winnerId` is `null`. Notifies all other human players.
 

@@ -25,7 +25,13 @@ class GameController extends Controller
         $me = $request->user();
 
         $gameIds = GamePlayer::where('user_id', $me->id)->pluck('game_id');
-        $games = Game::whereIn('id', $gameIds)->with(['players.user', 'invites'])->get();
+        $games = Game::whereIn('id', $gameIds)
+            ->with(['players.user', 'invites'])
+            ->withMax('turns', 'updated_at')
+            ->withMax('players', 'updated_at')
+            ->withMax('messages', 'created_at')
+            ->withMax('invites', 'updated_at')
+            ->get();
 
         $gamesPayload = $games->map(function (Game $game) use ($me) {
             $player = $game->players->firstWhere('user_id', $me->id);
@@ -64,6 +70,8 @@ class GameController extends Controller
                 'round_number' => $game->round_number,
                 'turn_number' => $game->turn_number,
                 'created_at' => $game->created_at->toIso8601String(),
+                'last_activity_at' => $game->lastTouchedAt()?->toIso8601String(),
+                'can_delete' => $game->userCanDelete($me->id),
                 'unread_message_count' => $this->unreadMessageCount($game->id, $me->id, $player?->last_read_message_id),
                 'blocked_players' => $this->serializeBlockedPlayers($game, $me),
             ];
@@ -402,7 +410,9 @@ class GameController extends Controller
         }
 
         if (! $game->userCanDelete($me->id)) {
-            return response()->json(['message' => 'Only the creator or the last remaining human player can delete this game'], 403);
+            return response()->json([
+                'message' => 'Only the creator or the last remaining human can delete a game that is still active. Any player can delete it once it is finished, or if it has not been touched in a week.',
+            ], 403);
         }
 
         $wasWaitingLobby = $this->isMatchmakingLobby($game);

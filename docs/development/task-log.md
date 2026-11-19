@@ -1,5 +1,17 @@
 # Task Log
 
+## 2026-11-18 — Any member can delete a finished or idle game
+
+**Status:** Complete
+
+- `DELETE /games/{id}`: any human member when `status` is `finished`, or when nothing has touched the game for 7 days
+- A touch is the latest of the game row, a seat, a turn (including a mid-turn save), an invite, or chat
+- Creator, and the sole remaining sitting-in human, can still delete an active game
+- `GET /games` adds `can_delete` and `last_activity_at`
+- 403 copy: `Only the creator or the last remaining human can delete a game that is still active. Any player can delete it once it is finished, or if it has not been touched in a week.`
+
+---
+
 ## 2026-09-18 — Pending invitees are not on their turn
 
 **Status:** Complete

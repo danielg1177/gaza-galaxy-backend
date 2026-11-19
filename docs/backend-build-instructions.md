@@ -618,11 +618,11 @@ Auth required. User must be a member of this game (check `game_players`).
 ---
 
 #### `DELETE /api/games/{id}`
-Auth required. Caller must be a member. Allowed for the creator in any status, or for the sole remaining sitting-in human (every other human has forfeited; AI does not count).
+Auth required. Caller must be a member. Allowed for the creator in any status, for the sole remaining sitting-in human (every other human has forfeited; AI does not count), and for any human member when the game is finished or untouched for 7 days.
 
 **Logic:**
 1. Verify caller is in `game_players`. 403 `{ "message": "Forbidden" }` if not.
-2. Verify caller is the creator **or** the only sitting-in human left. 403 `{ "message": "Only the creator or the last remaining human player can delete this game" }` if not.
+2. Verify caller is the creator, the only sitting-in human left, or any member of a finished or week-idle game. 403 `{ "message": "Only the creator or the last remaining human can delete a game that is still active. Any player can delete it once it is finished, or if it has not been touched in a week." }` if not.
 3. Delete game (cascades to `game_players`, `game_invites`, `turns`).
 
 **Response (200):** `{ "message": "Game deleted" }`

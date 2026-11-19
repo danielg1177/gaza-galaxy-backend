@@ -58,14 +58,14 @@ All routes are under `/api/`. Public routes have no middleware. All others requi
 - `GET /users/search?q=` — `{ users: [{ id, username, friendship_status }] }`
 
 **Games**
-- `GET /games` — `{ games: [{ id, name, created_by_user_id, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, unread_message_count, blocked_players }] }` — players ordered by `turn_order`
+- `GET /games` — `{ games: [{ id, name, created_by_user_id, status, play_mode, alert_state, is_my_turn, has_in_progress_actions, winner_user_id, is_open_lobby, map_config, players, current_player_name, round_number, turn_number, created_at, last_activity_at, can_delete, unread_message_count, blocked_players }] }` — players ordered by `turn_order`
 - `POST /games` — 201 — fields: `name`, `map_config` (object), `player_slots` (with `name`, `type`, `user_id`). Extra human `user_id` null = open matchmaking seat; skip `startGame` until roster is full.
 - `GET /games/open` — public waiting matchmaking lobbies the caller is not in; `{ games, count }` — each card includes `blocked_players` (seated humans the caller blocked)
 - `POST /games/{game}/join` — claim next empty human seat
 - `POST /games/{game}/leave` — release a waiting seat (not the creator)
 - `POST /games/{game}/start` — member of a full lobby posts `state_json` to start the match
 - `GET /games/{game}` — members only (403 otherwise) — `{ game: { ..., created_by_user_id, unread_message_count, players }, state_json, is_my_turn, alert_state, in_progress_actions, latest_events }` — `latest_events` is the decoded `events_json` from the most recently submitted turn, or `[]`. Players include `is_forfeited`. Sitting-out members and pending invitees get `is_my_turn: false` / `alert_state: waiting` (or `waiting_for_players` when the match is parked).
-- `DELETE /games/{game}` — member; creator always, or sole remaining sitting-in human after others forfeit — any status — 200 `{ message }`
+- `DELETE /games/{game}` — member; creator always, sole remaining sitting-in human after others forfeit, or any member of a finished game or a game untouched for 7 days — 200 `{ message }`
 - `POST /games/{game}/forfeit` — human member, in-progress, not eliminated — 200 `{ forfeited: true }`
 - `POST /games/{game}/rejoin` — sitting-out human member, in-progress, not eliminated — 200 `{ rejoined: true }`
 - `POST /games/{game}/end` — any human member, in-progress — 200 `{ ended: true }` — finishes the match for everyone (`winner_user_id` null)
